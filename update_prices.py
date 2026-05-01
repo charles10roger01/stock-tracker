@@ -14,9 +14,22 @@ import subprocess
 import sys
 
 # ===== 設定區 =====
-GITHUB_TOKEN = "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"        # 填入你的 GitHub Personal Access Token
 GITHUB_REPO  = "charles10roger01/stock-tracker"
 STOCKS_FILE  = "stocks.json"
+
+# 從 config.txt 讀取 token（這個檔案不會上傳到 GitHub）
+def load_token():
+    config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.txt")
+    try:
+        with open(config_path, "r") as f:
+            token = f.read().strip()
+            if token:
+                return token
+    except FileNotFoundError:
+        pass
+    return ""
+
+GITHUB_TOKEN = load_token()
 # ==================
 
 def get_today():

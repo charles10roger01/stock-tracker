@@ -22,6 +22,13 @@
       "addedDate": "5/2"
     },
     {
+      "code": "3149",
+      "name": "正達",
+      "sector": "電子中游-LCD-ST",
+      "prices": {},
+      "addedDate": "5/2"
+    },
+    {
       "code": "3016",
       "name": "嘉晶",
       "sector": "電子上游-晶圓材料",
@@ -32,6 +39,97 @@
       "code": "2328",
       "name": "廣宇",
       "sector": "電子上游-連接元件",
+      "prices": {},
+      "addedDate": "5/2"
+    },
+    {
+      "code": "2440",
+      "name": "太空梭",
+      "sector": "電子上游-連接元件",
+      "prices": {},
+      "addedDate": "5/2"
+    },
+    {
+      "code": "3511",
+      "name": "矽瑪",
+      "sector": "電子上游-連接元件",
+      "prices": {},
+      "addedDate": "5/2"
+    },
+    {
+      "code": "3526",
+      "name": "凡甲",
+      "sector": "電子上游-連接元件",
+      "prices": {},
+      "addedDate": "5/2"
+    },
+    {
+      "code": "6197",
+      "name": "佳必琪",
+      "sector": "電子上游-連接元件",
+      "prices": {},
+      "addedDate": "5/2"
+    },
+    {
+      "code": "6224",
+      "name": "聚鼎",
+      "sector": "電子上游-被動元件",
+      "prices": {},
+      "addedDate": "5/2"
+    },
+    {
+      "code": "1595",
+      "name": "川寶",
+      "sector": "電子上游-PCB材料",
+      "prices": {},
+      "addedDate": "5/2"
+    },
+    {
+      "code": "2486",
+      "name": "一詮",
+      "sector": "電子上游-IC導線架",
+      "prices": {},
+      "addedDate": "5/2"
+    },
+    {
+      "code": "8032",
+      "name": "光菱",
+      "sector": "電子上游-IC通路",
+      "prices": {},
+      "addedDate": "5/2"
+    },
+    {
+      "code": "4951",
+      "name": "精拓科",
+      "sector": "電子上游-IC設計",
+      "prices": {},
+      "addedDate": "5/2"
+    },
+    {
+      "code": "6147",
+      "name": "頎邦",
+      "sector": "電子上游-IC封測",
+      "prices": {},
+      "addedDate": "5/2"
+    },
+    {
+      "code": "5443",
+      "name": "均豪",
+      "sector": "電子上游-IC半導",
+      "prices": {},
+      "addedDate": "5/2"
+    },
+    {
+      "code": "6823",
+      "name": "濾能",
+      "sector": "電子上游-IC半導",
+      "prices": {},
+      "addedDate": "5/2"
+    },
+    {
+      "code": "2342",
+      "name": "茂矽",
+      "sector": "電子上游-IC代工",
       "prices": {},
       "addedDate": "5/2"
     }
