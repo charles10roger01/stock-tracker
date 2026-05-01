@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>強勢股追蹤儀表板</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f5f5f5; color: #1a1a1a; font-size: 14px; }
+  .header { background: #fff; border-bottom: 1px solid #e5e5e5; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .header h1 { font-size: 18px; font-weight: 600; }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  .last-update { font-size: 12px; color: #888; }
+  .container { max-width: 1400px; margin: 0 auto; padding: 20px 24px; }
+  .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .metric { background: #fff; border-radius: 10px; border: 1px solid #e5e5e5; padding: 14px 16px; }
+  .metric-label { font-size: 11px; color: #888; margin-bottom: 6px; }
+  .metric-val { font-size: 24px; font-weight: 600; }
+  .metric-val.warn { color: #d97706; }
+  .metric-val.success { color: #16a34a; }
+  .metric-val.info { color: #2563eb; }
+  .toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+  .view-toggle { display: flex; gap: 6px; }
+  .view-btn { padding: 6px 14px; border-radius: 6px; border: 1px solid #e5e5e5; background: #fff; color: #666; font-size: 12px; cursor: pointer; }
+  .view-btn.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+  .btn { padding: 7px 16px; border-radius: 6px; border: 1px solid #e5e5e5; background: #fff; color: #1a1a1a; font-size: 13px; cursor: pointer; }
+  .btn:hover { background: #f5f5f5; }
+  .btn-primary { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+  .btn-primary:hover { background: #333; }
+  .btn-sm { padding: 3px 10px; font-size: 11px; }
+  .btn-danger { border-color: #fca5a5; color: #dc2626; }
+  .card { background: #fff; border-radius: 10px; border: 1px solid #e5e5e5; overflow: hidden; margin-bottom: 16px; }
+  .card-header { padding: 12px 16px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; }
+  .card-title { font-size: 13px; font-weight: 600; color: #555; }
+  .tbl-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { text-align: left; padding: 8px 10px; border-bottom: 1px solid #f0f0f0; color: #888; font-weight: 500; white-space: nowrap; background: #fafafa; }
+  td { padding: 8px 10px; border-bottom: 1px solid #f5f5f5; white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafafa; }
+  .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 5px; font-weight: 500; }
+  .b-fly { background: #dcfce7; color: #15803d; }
+  .b-near { background: #fef3c7; color: #b45309; }
+  .b-wait { background: #dbeafe; color: #1d4ed8; }
+  .b-drop { background: #fee2e2; color: #b91c1c; }
+  .b-unknown { background: #f3f4f6; color: #6b7280; }
+  .peak-val { color: #dc2626; font-weight: 600; }
+  .stock-link { color: #2563eb; text-decoration: none; font-weight: 500; }
+  .stock-link:hover { text-decoration: underline; }
+  .group-header { padding: 10px 16px; background: #fafafa; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; }
+  .group-title { font-size: 13px; font-weight: 600; }
+  .group-count { font-size: 11px; color: #888; font-weight: 400; margin-left: 6px; }
+  .alert-tag { font-size: 11px; padding: 2px 8px; border-radius: 5px; background: #fef3c7; color: #b45309; font-weight: 500; }
+  .fly-tag { font-size: 11px; padding: 2px 8px; border-radius: 5px; background: #dcfce7; color: #15803d; font-weight: 500; }
+  .empty { text-align: center; padding: 3rem; color: #aaa; font-size: 13px; }
+  .modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100; align-items: center; justify-content: center; }
+  .modal-bg.open { display: flex; }
+  .modal { background: #fff; border-radius: 12px; padding: 24px; width: 480px; max-width: 95vw; }
+  .modal h2 { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+  .modal label { font-size: 12px; color: #666; display: block; margin-bottom: 4px; margin-top: 12px; }
+  .modal input, .modal textarea { width: 100%; padding: 8px 10px; border: 1px solid #e5e5e5; border-radius: 6px; font-size: 13px; }
+  .modal textarea { height: 120px; resize: none; }
+  .modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid #e5e5e5; margin-bottom: 16px; }
+  .tab { padding: 8px 16px; font-size: 13px; cursor: pointer; border-bottom: 2px solid transparent; color: #888; }
+  .tab.active { color: #1a1a1a; border-bottom-color: #1a1a1a; font-weight: 500; }
+  .notice { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 12px 16px; font-size: 12px; color: #92400e; margin-bottom: 16px; line-height: 1.6; }
+  @media (max-width: 600px) { .summary-grid { grid-template-columns: repeat(2, 1fr); } .container { padding: 12px; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>強勢股追蹤儀表板</h1>
+  <div class="header-right">
+    <span class="last-update" id="last-update">載入中...</span>
+    <button class="btn btn-primary" onclick="openAddModal()">+ 新增股票</button>
+  </div>
+</div>
+
+<div class="container">
+  <div class="notice" id="data-notice" style="display:none;">
+    ⚠️ 找不到 stocks.json，目前顯示範例資料。請依照說明文件設定 GitHub Repository。
+  </div>
+
+  <div class="summary-grid">
+    <div class="metric"><div class="metric-label">追蹤中</div><div class="metric-val" id="cnt-total">0</div></div>
+    <div class="metric"><div class="metric-label">準備進場</div><div class="metric-val warn" id="cnt-near">0</div></div>
+    <div class="metric"><div class="metric-label">仍在飆升</div><div class="metric-val success" id="cnt-fly">0</div></div>
+    <div class="metric"><div class="metric-label">等待反彈</div><div class="metric-val info" id="cnt-wait">0</div></div>
+  </div>
+
+  <div class="toolbar">
+    <div class="view-toggle">
+      <button class="view-btn active" onclick="setView('all')">全部</button>
+      <button class="view-btn" onclick="setView('group')">依族群</button>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button class="btn btn-sm" onclick="exportStocks()">匯出清單</button>
+      <button class="btn btn-sm" onclick="document.getElementById('import-input').click()">匯入清單</button>
+      <input type="file" id="import-input" accept=".json" style="display:none" onchange="importStocks(this)">
+    </div>
+  </div>
+
+  <div id="all-view">
+    <div class="card">
+      <div class="tbl-wrap">
+        <table>
+          <thead id="all-head"></thead>
+          <tbody id="all-body"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="all-empty" style="display:none;">尚無追蹤股票，點右上角「+ 新增股票」開始</div>
+    </div>
+  </div>
+
+  <div id="group-view" style="display:none;"></div>
+</div>
+
+<div class="modal-bg" id="add-modal">
+  <div class="modal">
+    <h2>新增股票</h2>
+    <div class="tabs">
+      <div class="tab active" onclick="switchAddTab('manual')">手動輸入</div>
+      <div class="tab" onclick="switchAddTab('batch')">批次輸入</div>
+    </div>
+    <div id="tab-manual">
+      <label>股票代號</label>
+      <input type="text" id="add-code" placeholder="例如：2417">
+      <label>股票名稱</label>
+      <input type="text" id="add-name" placeholder="例如：圓剛">
+      <label>產業族群</label>
+      <input type="text" id="add-sector" placeholder="例如：電子中游-PC介面卡">
+    </div>
+    <div id="tab-batch" style="display:none;">
+      <label>每行一個股票（格式：代號 名稱 族群）</label>
+      <textarea id="batch-input" placeholder="2417 圓剛 電子中游-PC介面卡&#10;3016 嘉晶 電子上游-晶圓材料&#10;2328 廣宇 電子上游-連接元件"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeAddModal()">取消</button>
+      <button class="btn btn-primary" onclick="addStocks()">加入</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const REPO = 'charles10roger01/stock-tracker';
+const DATA_URL = `https://raw.githubusercontent.com/${REPO}/main/stocks.json`;
+const LS_KEY = 'stock-tracker-local';
+
+let stocks = [];
+let currentView = 'all';
+let addTab = 'manual';
+
+async function init() {
+  try {
+    const r = await fetch(DATA_URL + '?t=' + Date.now());
+    if (r.ok) {
+      const data = await r.json();
+      stocks = data.stocks || [];
+      document.getElementById('last-update').textContent = '最後更新：' + (data.lastUpdate || '未知');
+    } else { loadLocal(); }
+  } catch(e) { loadLocal(); }
+  render();
+}
+
+function loadLocal() {
+  try { const s = localStorage.getItem(LS_KEY); if (s) stocks = JSON.parse(s); }
+  catch(e) { stocks = []; }
+  document.getElementById('data-notice').style.display = 'block';
+  document.getElementById('last-update').textContent = '本機資料';
+}
+
+function saveLocal() {
+  localStorage.setItem(LS_KEY, JSON.stringify(stocks));
+}
+
+function today() { const d = new Date(); return `${d.getMonth()+1}/${d.getDate()}`; }
+
+function getStatus(s) {
+  const vals = Object.values(s.prices || {}).map(Number).filter(Boolean);
+  if (!vals.length) return 'unknown';
+  const peak = Math.max(...vals), latest = vals[vals.length-1];
+  const pct = (latest - peak) / peak * 100;
+  if (latest >= peak) return 'fly';
+  if (pct >= -3) return 'near';
+  if (pct >= -15) return 'wait';
+  return 'drop';
+}
+
+function getPeak(s) { const v = Object.values(s.prices||{}).map(Number).filter(Boolean); return v.length ? Math.max(...v) : null; }
+function getLatest(s) { const e = Object.entries(s.prices||{}); return e.length ? Number(e[e.length-1][1]) : null; }
+function getPct(s) { const p = getPeak(s), l = getLatest(s); return (p && l) ? ((l-p)/p*100).toFixed(1) : null; }
+
+function badgeHtml(st) {
+  const map = { fly:['仍在飆升','b-fly'], near:['準備進場','b-near'], wait:['等待反彈','b-wait'], drop:['大幅回落','b-drop'], unknown:['-','b-unknown'] };
+  const [label, cls] = map[st] || map.unknown;
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+function getAllDates() {
+  return [...new Set(stocks.flatMap(s => Object.keys(s.prices||{})))].sort((a,b)=>{
+    const [am,ad]=a.split('/').map(Number),[bm,bd]=b.split('/').map(Number);
+    return am!==bm?am-bm:ad-bd;
+  });
+}
+
+function stockRowHtml(s, idx, allDates) {
+  const st = getStatus(s), peak = getPeak(s), pct = getPct(s);
+  const priceCells = allDates.map(d => {
+    const v = s.prices?.[d];
+    const isPeak = v && Number(v) === peak;
+    return `<td class="${isPeak?'peak-val':''}">${v||'-'}</td>`;
+  }).join('');
+  return `<tr>
+    <td><a class="stock-link" href="https://stockcharts.cmoney.tw/charts/chip-k-chart/?code=${s.code}" target="_blank">${s.code}</a></td>
+    <td style="font-weight:500;">${s.name||'-'}</td>
+    <td style="color:#888;font-size:11px;">${s.sector||'-'}</td>
+    <td>${peak?peak.toFixed(2):'-'}</td>
+    <td>${pct!==null?pct+'%':'-'}</td>
+    <td>${badgeHtml(st)}</td>
+    ${priceCells}
+    <td><button class="btn btn-sm btn-danger" onclick="removeStock(${idx})">移除</button></td>
+  </tr>`;
+}
+
+function render() {
+  const allDates = getAllDates();
+  let cntNear=0, cntFly=0, cntWait=0;
+  stocks.forEach(s => { const st=getStatus(s); if(st==='near')cntNear++; if(st==='fly')cntFly++; if(st==='wait')cntWait++; });
+  document.getElementById('cnt-total').textContent = stocks.length;
+  document.getElementById('cnt-near').textContent = cntNear;
+  document.getElementById('cnt-fly').textContent = cntFly;
+  document.getElementById('cnt-wait').textContent = cntWait;
+
+  const empty = !stocks.length;
+  document.getElementById('all-empty').style.display = empty ? 'block' : 'none';
+
+  if (!empty) {
+    document.getElementById('all-head').innerHTML = `<tr><th>代號</th><th>名稱</th><th>族群</th><th>前高</th><th>距前高</th><th>狀態</th>${allDates.map(d=>`<th>${d}</th>`).join('')}<th></th></tr>`;
+    document.getElementById('all-body').innerHTML = stocks.map((s,i) => stockRowHtml(s,i,allDates)).join('');
+  }
+
+  if (currentView === 'group') renderGroups(allDates);
+}
+
+function renderGroups(allDates) {
+  const groups = {};
+  stocks.forEach((s,i) => { const g=s.sector||'未分類'; if(!groups[g]) groups[g]=[]; groups[g].push({s,i}); });
+  let html = '';
+  Object.entries(groups).sort((a,b)=>a[0].localeCompare(b[0],undefined,{sensitivity:'base'})).forEach(([gName, items]) => {
+    const hasNear = items.some(({s}) => getStatus(s)==='near');
+    const hasFly = items.some(({s}) => getStatus(s)==='fly');
+    html += `<div class="card" style="margin-bottom:16px;">
+      <div class="group-header">
+        <div><span class="group-title">${gName}</span><span class="group-count">${items.length} 檔</span></div>
+        ${hasNear?'<span class="alert-tag">有股票準備進場</span>':hasFly?'<span class="fly-tag">族群強勢中</span>':''}
+      </div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>代號</th><th>名稱</th><th>前高</th><th>距前高</th><th>狀態</th>${allDates.map(d=>`<th>${d}</th>`).join('')}<th></th></tr></thead>
+        <tbody>${items.map(({s,i}) => {
+          const st=getStatus(s),peak=getPeak(s),pct=getPct(s);
+          const priceCells=allDates.map(d=>{const v=s.prices?.[d];return`<td class="${v&&Number(v)===peak?'peak-val':''}">${v||'-'}</td>`;}).join('');
+          return `<tr>
+            <td><a class="stock-link" href="https://stockcharts.cmoney.tw/charts/chip-k-chart/?code=${s.code}" target="_blank">${s.code}</a></td>
+            <td style="font-weight:500;">${s.name||'-'}</td>
+            <td>${peak?peak.toFixed(2):'-'}</td><td>${pct!==null?pct+'%':'-'}</td>
+            <td>${badgeHtml(st)}</td>${priceCells}
+            <td><button class="btn btn-sm btn-danger" onclick="removeStock(${i})">移除</button></td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table></div>
+    </div>`;
+  });
+  document.getElementById('group-view').innerHTML = html || '<div class="empty">尚無追蹤股票</div>';
+}
+
+function setView(v) {
+  currentView = v;
+  document.querySelectorAll('.view-btn').forEach((b,i)=>b.classList.toggle('active',['all','group'][i]===v));
+  document.getElementById('all-view').style.display = v==='all'?'block':'none';
+  document.getElementById('group-view').style.display = v==='group'?'block':'none';
+  if (v==='group') renderGroups(getAllDates());
+}
+
+function openAddModal() { document.getElementById('add-modal').classList.add('open'); }
+function closeAddModal() { document.getElementById('add-modal').classList.remove('open'); }
+
+function switchAddTab(t) {
+  addTab = t;
+  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',['manual','batch'][i]===t));
+  document.getElementById('tab-manual').style.display = t==='manual'?'block':'none';
+  document.getElementById('tab-batch').style.display = t==='batch'?'block':'none';
+}
+
+function addStocks() {
+  if (addTab === 'manual') {
+    const code = document.getElementById('add-code').value.trim();
+    const name = document.getElementById('add-name').value.trim();
+    const sector = document.getElementById('add-sector').value.trim();
+    if (!code) return;
+    if (!stocks.find(s=>s.code===code)) stocks.push({code,name,sector,prices:{},addedDate:today()});
+    document.getElementById('add-code').value='';
+    document.getElementById('add-name').value='';
+    document.getElementById('add-sector').value='';
+  } else {
+    const lines = document.getElementById('batch-input').value.trim().split('\n');
+    lines.forEach(l => {
+      const parts = l.trim().split(/\s+/);
+      const code=parts[0], name=parts[1]||'', sector=parts.slice(2).join(' ')||'';
+      if (code && !stocks.find(s=>s.code===code)) stocks.push({code,name,sector,prices:{},addedDate:today()});
+    });
+    document.getElementById('batch-input').value='';
+  }
+  saveLocal();
+  render();
+  closeAddModal();
+}
+
+function removeStock(idx) { stocks.splice(idx,1); saveLocal(); render(); }
+
+function exportStocks() {
+  const data = JSON.stringify({stocks, lastUpdate: today()}, null, 2);
+  const a = document.createElement('a');
+  a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(data);
+  a.download = 'stocks.json';
+  a.click();
+}
+
+function importStocks(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      stocks = data.stocks || data || [];
+      saveLocal(); render();
+    } catch(err) { alert('檔案格式錯誤'); }
+  };
+  reader.readAsText(file);
+}
+
+init();
+</script>
+</body>
+</html>
