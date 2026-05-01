@@ -14,7 +14,7 @@ import subprocess
 import sys
 
 # ===== 設定區 =====
-GITHUB_TOKEN = ""        # 填入你的 GitHub Personal Access Token
+GITHUB_TOKEN = "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"        # 填入你的 GitHub Personal Access Token
 GITHUB_REPO  = "charles10roger01/stock-tracker"
 STOCKS_FILE  = "stocks.json"
 # ==================
