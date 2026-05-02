@@ -132,6 +132,76 @@
       "sector": "電子上游-IC代工",
       "prices": {},
       "addedDate": "5/2"
+    },
+    {
+      "code": "2464",
+      "name": "盟立",
+      "sector": "電子中游-儀器設備",
+      "prices": {},
+      "addedDate": "5/2"
+    },
+    {
+      "code": "6207",
+      "name": "雷科",
+      "sector": "電子中游-儀器設備",
+      "prices": {},
+      "addedDate": "5/2"
+    },
+    {
+      "code": "5474",
+      "name": "聰泰",
+      "sector": "電子中游-PC介面卡",
+      "prices": {},
+      "addedDate": "5/2"
+    },
+    {
+      "code": "2374",
+      "name": "佳能",
+      "sector": "電子下游-數位相機",
+      "prices": {},
+      "addedDate": "5/2"
+    },
+    {
+      "code": "3707",
+      "name": "漢磊",
+      "sector": "電子上游-晶圓材料",
+      "prices": {},
+      "addedDate": "5/2"
+    },
+    {
+      "code": "3605",
+      "name": "宏致",
+      "sector": "電子上游-連接元件",
+      "prices": {},
+      "addedDate": "5/2"
+    },
+    {
+      "code": "3680",
+      "name": "家登",
+      "sector": "電子上游-IC-半導體",
+      "prices": {},
+      "addedDate": "5/2"
+    },
+    {
+      "code": "6683",
+      "name": "雍智科技",
+      "sector": "電子上游-IC-半導體",
+      "prices": {},
+      "addedDate": "5/2"
+    },
+    {
+      "code": "1597",
+      "name": "直得",
+      "sector": "傳產-電機",
+      "prices": {},
+      "addedDate": "5/2"
+    },
+    {
+      "code": "4540",
+      "name": "全球傳動",
+      "sector": "傳產-電機",
+      "prices": {},
+      "addedDate": "5/2"
     }
   ],
   "lastUpdate": "5/2"
