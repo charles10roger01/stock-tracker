@@ -441,7 +441,12 @@ function showPreview(e, code, name) {
     tooltip.style.display = 'block';
     header.textContent = `${code} ${name} — 布林通道`;
     const container = document.getElementById('preview-iframe-container');
-    container.innerHTML = `<div style="overflow:hidden;height:480px;border-radius:6px;"><iframe src="https://histock.tw/stock/tchart.aspx?no=${code}&m=b" width="1100" height="1400" frameborder="0" scrolling="no" style="margin-top:-300px;display:block;transform:scale(0.85);transform-origin:top left;"></iframe></div>`;
+    const iframeId = 'preview-iframe-' + code;
+    container.innerHTML = `<div style="overflow:hidden;height:480px;border-radius:6px;" id="preview-div-${code}"><iframe id="${iframeId}" src="https://histock.tw/stock/tchart.aspx?no=${code}&m=b" width="1100" height="1400" frameborder="0" scrolling="no" style="display:block;transform:scale(0.85);transform-origin:top left;margin-top:0px;"></iframe></div>`;
+    const iframe = document.getElementById(iframeId);
+    iframe.onload = () => {
+      setTimeout(() => { iframe.style.marginTop = '-350px'; }, 500);
+    };
   }, 400);
 }
 
