@@ -81,7 +81,7 @@
   .tabs { display: flex; gap: 4px; border-bottom: 1px solid #e5e5e5; margin-bottom: 16px; }
   .tab { padding: 8px 16px; font-size: 13px; cursor: pointer; border-bottom: 2px solid transparent; color: #888; }
   .tab.active { color: #1a1a1a; border-bottom-color: #1a1a1a; font-weight: 500; }
-  .preview-tooltip { position: fixed; background: #fff; border: 1px solid #e5e5e5; border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.12); padding: 12px; width: 920px; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; display: none; pointer-events: none; }
+  .preview-tooltip { position: fixed; background: #fff; border: 1px solid #e5e5e5; border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.12); padding: 12px; width: 600px; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; display: none; pointer-events: none; }
   .preview-header { font-size: 12px; font-weight: 600; margin-bottom: 8px; color: #1a1a1a; }
   @media (max-width: 600px) { .summary-grid { grid-template-columns: repeat(2, 1fr); } .container { padding: 12px; } }
 </style>
@@ -487,11 +487,9 @@ function showPreview(e,code,name) {
     tooltip.style.display='block';
     header.textContent=`${code} ${name} — 布林通道`;
     const container=document.getElementById('preview-iframe-container');
-    const iframeId='preview-iframe-'+code;
-    container.innerHTML=`<div style="overflow:hidden;height:480px;border-radius:6px;" id="preview-div-${code}"><iframe id="${iframeId}" src="https://histock.tw/stock/tchart.aspx?no=${code}&m=b" width="1100" height="1400" frameborder="0" scrolling="no" style="display:block;transform:scale(0.85);transform-origin:top left;margin-top:0px;"></iframe></div>`;
-    const iframe=document.getElementById(iframeId);
-    iframe.onload=()=>{ setTimeout(()=>{iframe.style.marginTop='-350px';},2000); };
-  },400);
+    const imgUrl=`https://raw.githubusercontent.com/${REPO}/main/charts/${code}.png?t=${Date.now()}`;
+    container.innerHTML=`<img src="${imgUrl}" style="width:100%;border-radius:6px;" onerror="this.parentElement.innerHTML='<div style=padding:2rem;text-align:center;color:#aaa;font-size:13px;>圖表尚未生成，請先執行一鍵更新</div>'">`;
+  },300);
 }
 function hidePreview() {
   clearTimeout(previewTimer);
