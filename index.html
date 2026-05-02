@@ -72,9 +72,8 @@
   .chart-links { display: flex; gap: 8px; align-items: center; }
   .chart-link { font-size: 11px; padding: 3px 10px; border-radius: 5px; border: 1px solid #e5e5e5; background: #fff; color: #555; text-decoration: none; }
   .chart-link:hover { background: #f5f5f5; }
-  .preview-tooltip { position: fixed; background: #fff; border: 1px solid #e5e5e5; border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.12); padding: 12px; width: 320px; z-index: 1000; display: none; pointer-events: none; }
+  .preview-tooltip { position: fixed; background: #fff; border: 1px solid #e5e5e5; border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.12); padding: 12px; width: 424px; z-index: 1000; display: none; pointer-events: none; }
   .preview-header { font-size: 12px; font-weight: 600; margin-bottom: 8px; color: #1a1a1a; }
-  .preview-loading { font-size: 12px; color: #888; text-align: center; padding: 20px; }
 </style>
 </head>
 <body>
@@ -143,8 +142,7 @@
 
 <div id="preview-tooltip" class="preview-tooltip">
   <div class="preview-header" id="preview-header"></div>
-  <canvas id="preview-canvas" width="296" height="160"></canvas>
-  <div class="preview-loading" id="preview-loading" style="display:none;">載入中...</div>
+  <div id="preview-iframe-container"></div>
 </div>
 
 <div class="modal-bg" id="add-modal">
@@ -244,7 +242,7 @@ function stockRowHtml(s, idx, allDates) {
   }).join('');
   return `<tr>
     <td><a class="stock-link" href="#" onclick="copyCode('${s.code}');return false;" title="點擊複製股號">${s.code}</a></td>
-    <td><a class="stock-link" href="https://www.wantgoo.com/stock/${s.code}" target="_blank" onmouseenter="showPreview(event,'${s.code}','${s.name||s.code}')" onmouseleave="hidePreview()" style="color:#1a1a1a;">${s.name||'-'}</a></td>
+    <td><a class="stock-link" href="https://www.wantgoo.com/stock/${s.code}/technical-chart" target="_blank" onmouseenter="showPreview(event,'${s.code}','${s.name||s.code}')" onmouseleave="hidePreview()" style="color:#1a1a1a;">${s.name||'-'}</a></td>
     <td style="color:#888;font-size:11px;">${s.sector||'-'}</td>
     <td>${peak?peak.toFixed(2):'-'}</td>
     <td>${pct!==null?pct+'%':'-'}</td>
@@ -433,145 +431,28 @@ function closeChart() {
 }
 
 // ===== Hover Preview =====
-let previewCache = {};
 let previewTimer = null;
 
-async function showPreview(e, code, name) {
+function showPreview(e, code, name) {
   clearTimeout(previewTimer);
-  previewTimer = setTimeout(async () => {
+  previewTimer = setTimeout(() => {
     const tooltip = document.getElementById('preview-tooltip');
-    const canvas = document.getElementById('preview-canvas');
     const header = document.getElementById('preview-header');
-    const loading = document.getElementById('preview-loading');
-
-    // Position tooltip
     const x = e.clientX + 16;
-    const y = e.clientY - 80;
-    tooltip.style.left = Math.min(x, window.innerWidth - 340) + 'px';
+    const y = e.clientY - 100;
+    tooltip.style.left = Math.min(x, window.innerWidth - 420) + 'px';
     tooltip.style.top = Math.max(y, 10) + 'px';
     tooltip.style.display = 'block';
-    header.textContent = `${code} ${name} — 日K + 布林通道`;
-
-    // Use cache if available
-    if (previewCache[code]) {
-      drawPreviewChart(canvas, previewCache[code]);
-      return;
-    }
-
-    canvas.style.display = 'none';
-    loading.style.display = 'block';
-
-    try {
-      const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${code}.TW?interval=1d&range=3mo`);
-      const data = await r.json();
-      const result = data?.chart?.result?.[0];
-      if (!result) throw new Error('no data');
-      const closes = result.indicators.quote[0].close;
-      const highs = result.indicators.quote[0].high;
-      const lows = result.indicators.quote[0].low;
-      const opens = result.indicators.quote[0].open;
-      previewCache[code] = { closes, highs, lows, opens };
-      loading.style.display = 'none';
-      canvas.style.display = 'block';
-      drawPreviewChart(canvas, previewCache[code]);
-    } catch(e) {
-      loading.textContent = '無法載入圖表';
-    }
-  }, 300);
+    header.textContent = `${code} ${name} — 布林通道`;
+    const container = document.getElementById('preview-iframe-container');
+    container.innerHTML = `<iframe src="https://histock.tw/stock/tchart.aspx?no=${code}&m=b" width="400" height="260" frameborder="0" scrolling="no" style="border-radius:6px;"></iframe>`;
+  }, 400);
 }
 
 function hidePreview() {
   clearTimeout(previewTimer);
   document.getElementById('preview-tooltip').style.display = 'none';
-}
-
-function drawPreviewChart(canvas, { closes, highs, lows, opens }) {
-  const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
-  const pad = { t: 10, b: 20, l: 8, r: 8 };
-  const n = closes.length;
-
-  // Compute Bollinger Bands (20,2)
-  const period = 20;
-  const upper = [], lower = [], mid = [];
-  for (let i = 0; i < n; i++) {
-    if (i < period - 1) { upper.push(null); lower.push(null); mid.push(null); continue; }
-    const slice = closes.slice(i - period + 1, i + 1).filter(Boolean);
-    const avg = slice.reduce((a,b) => a+b, 0) / slice.length;
-    const std = Math.sqrt(slice.reduce((a,b) => a + (b-avg)**2, 0) / slice.length);
-    mid.push(avg); upper.push(avg + 2*std); lower.push(avg - 2*std);
-  }
-
-  // Scale
-  const allVals = [...closes, ...upper, ...lower].filter(Boolean);
-  const minV = Math.min(...allVals), maxV = Math.max(...allVals);
-  const scaleY = v => pad.t + (1 - (v - minV) / (maxV - minV)) * (H - pad.t - pad.b);
-  const barW = Math.max(1, (W - pad.l - pad.r) / n - 1);
-  const scaleX = i => pad.l + (i / (n-1)) * (W - pad.l - pad.r);
-
-  ctx.clearRect(0, 0, W, H);
-
-  // Draw Bollinger Bands fill
-  ctx.beginPath();
-  let started = false;
-  for (let i = 0; i < n; i++) {
-    if (!upper[i]) continue;
-    if (!started) { ctx.moveTo(scaleX(i), scaleY(upper[i])); started = true; }
-    else ctx.lineTo(scaleX(i), scaleY(upper[i]));
-  }
-  for (let i = n-1; i >= 0; i--) {
-    if (!lower[i]) continue;
-    ctx.lineTo(scaleX(i), scaleY(lower[i]));
-  }
-  ctx.closePath();
-  ctx.fillStyle = 'rgba(59,130,246,0.08)';
-  ctx.fill();
-
-  // Upper band
-  ctx.beginPath(); started = false;
-  for (let i = 0; i < n; i++) {
-    if (!upper[i]) continue;
-    if (!started) { ctx.moveTo(scaleX(i), scaleY(upper[i])); started = true; }
-    else ctx.lineTo(scaleX(i), scaleY(upper[i]));
-  }
-  ctx.strokeStyle = '#93c5fd'; ctx.lineWidth = 1; ctx.stroke();
-
-  // Lower band
-  ctx.beginPath(); started = false;
-  for (let i = 0; i < n; i++) {
-    if (!lower[i]) continue;
-    if (!started) { ctx.moveTo(scaleX(i), scaleY(lower[i])); started = true; }
-    else ctx.lineTo(scaleX(i), scaleY(lower[i]));
-  }
-  ctx.strokeStyle = '#93c5fd'; ctx.lineWidth = 1; ctx.stroke();
-
-  // Mid band (20MA)
-  ctx.beginPath(); started = false;
-  for (let i = 0; i < n; i++) {
-    if (!mid[i]) continue;
-    if (!started) { ctx.moveTo(scaleX(i), scaleY(mid[i])); started = true; }
-    else ctx.lineTo(scaleX(i), scaleY(mid[i]));
-  }
-  ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 1.5; ctx.stroke();
-
-  // Candlesticks
-  for (let i = 0; i < n; i++) {
-    if (!closes[i]) continue;
-    const x = scaleX(i);
-    const isUp = closes[i] >= opens[i];
-    ctx.strokeStyle = isUp ? '#ef4444' : '#22c55e';
-    ctx.fillStyle = isUp ? '#ef4444' : '#22c55e';
-    // Wick
-    ctx.beginPath();
-    ctx.moveTo(x, scaleY(highs[i]));
-    ctx.lineTo(x, scaleY(lows[i]));
-    ctx.lineWidth = 0.5; ctx.stroke();
-    // Body
-    const bodyTop = scaleY(Math.max(opens[i], closes[i]));
-    const bodyBot = scaleY(Math.min(opens[i], closes[i]));
-    const bh = Math.max(1, bodyBot - bodyTop);
-    ctx.fillRect(x - barW/2, bodyTop, barW, bh);
-  }
+  document.getElementById('preview-iframe-container').innerHTML = '';
 }
 
 init();
