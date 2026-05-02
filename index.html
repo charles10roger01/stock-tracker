@@ -66,6 +66,12 @@
   .tab.active { color: #1a1a1a; border-bottom-color: #1a1a1a; font-weight: 500; }
   .notice { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 12px 16px; font-size: 12px; color: #92400e; margin-bottom: 16px; line-height: 1.6; }
   @media (max-width: 600px) { .summary-grid { grid-template-columns: repeat(2, 1fr); } .container { padding: 12px; } }
+  .chart-panel { background: #fff; border-radius: 10px; border: 1px solid #e5e5e5; margin-bottom: 16px; overflow: hidden; }
+  .chart-header { padding: 10px 16px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; background: #fafafa; }
+  .chart-title { font-size: 13px; font-weight: 600; }
+  .chart-links { display: flex; gap: 8px; align-items: center; }
+  .chart-link { font-size: 11px; padding: 3px 10px; border-radius: 5px; border: 1px solid #e5e5e5; background: #fff; color: #555; text-decoration: none; }
+  .chart-link:hover { background: #f5f5f5; }
 </style>
 </head>
 <body>
@@ -115,6 +121,21 @@
   </div>
 
   <div id="group-view" style="display:none;"></div>
+
+  <div id="chart-panel" style="display:none;" class="chart-panel">
+    <div class="chart-header">
+      <span class="chart-title" id="chart-title">走勢圖</span>
+      <div class="chart-links">
+        <a id="chart-cmoney-link" href="#" target="_blank" class="chart-link">籌碼K線 ↗</a>
+        <a id="chart-yuanta-link" href="#" target="_blank" class="chart-link">元大點金靈 ↗</a>
+        <a id="chart-yahoo-link" href="#" target="_blank" class="chart-link">Yahoo財經 ↗</a>
+        <span class="chart-link" onclick="closeChart()" style="cursor:pointer;">✕ 關閉</span>
+      </div>
+    </div>
+    <div class="chart-body">
+      <div id="tradingview-widget"></div>
+    </div>
+  </div>
 </div>
 
 <div class="modal-bg" id="add-modal">
@@ -213,8 +234,8 @@ function stockRowHtml(s, idx, allDates) {
     return `<td class="${isPeak?'peak-val':''}">${v||'-'}</td>`;
   }).join('');
   return `<tr>
-    <td><a class="stock-link" href="https://stockcharts.cmoney.tw/charts/chip-k-chart/?code=${s.code}" target="_blank">${s.code}</a></td>
-    <td style="font-weight:500;">${s.name||'-'}</td>
+    <td><a class="stock-link" href="#" onclick="copyCode('${s.code}');return false;" title="點擊複製股號">${s.code}</a></td>
+    <td><a class="stock-link" href="#" onclick="showChart('${s.code}','${s.name||s.code}');return false;" title="點擊查看走勢圖" style="color:#1a1a1a;">${s.name||'-'}</a></td>
     <td style="color:#888;font-size:11px;">${s.sector||'-'}</td>
     <td>${peak?peak.toFixed(2):'-'}</td>
     <td>${pct!==null?pct+'%':'-'}</td>
@@ -338,6 +359,68 @@ function importStocks(input) {
     } catch(err) { alert('檔案格式錯誤'); }
   };
   reader.readAsText(file);
+}
+
+let currentChart = null;
+
+function copyCode(code) {
+  navigator.clipboard.writeText(code).then(() => {
+    const toast = document.createElement('div');
+    toast.textContent = `已複製 ${code}`;
+    toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;padding:8px 20px;border-radius:8px;font-size:13px;z-index:999;';
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 1500);
+  });
+}
+
+function showChart(code, name) {
+  const panel = document.getElementById('chart-panel');
+  const container = document.getElementById('tradingview-widget');
+
+  // Update header
+  document.getElementById('chart-title').textContent = `${code} ${name} — 60分K + 布林通道`;
+  document.getElementById('chart-cmoney-link').href = `https://www.cmoney.tw/app/chipk/stockinfo?t=chip&s=${code}`;
+  document.getElementById('chart-yuanta-link').href = `https://www.yuanta.com.tw/eYuanta/stock/StockInfo?stockId=${code}`;
+  document.getElementById('chart-yahoo-link').href = `https://finance.yahoo.com/chart/${code}.TW`;
+
+  // Clear previous widget
+  container.innerHTML = '';
+  currentChart = code;
+
+  // Build TradingView widget
+  const script = document.createElement('script');
+  script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+  script.async = true;
+  script.innerHTML = JSON.stringify({
+    autosize: true,
+    height: 480,
+    symbol: `TWSE:${code}`,
+    interval: '60',
+    timezone: 'Asia/Taipei',
+    theme: 'light',
+    style: '1',
+    locale: 'zh_TW',
+    hide_top_toolbar: false,
+    hide_legend: false,
+    save_image: false,
+    studies: ['BB@tv-basicstudies', 'Volume@tv-basicstudies', 'MAExp@tv-basicstudies'],
+    studies_overrides: {
+      'bb.length': 20,
+      'bb.mult': 2,
+      'ma.length': 20
+    },
+    container_id: 'tradingview-widget'
+  });
+
+  container.appendChild(script);
+  panel.style.display = 'block';
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function closeChart() {
+  document.getElementById('chart-panel').style.display = 'none';
+  document.getElementById('tradingview-widget').innerHTML = '';
+  currentChart = null;
 }
 
 init();

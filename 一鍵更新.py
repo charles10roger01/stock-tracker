@@ -63,7 +63,7 @@ def read_screenshot_with_claude(image_path, api_key):
     mime = "image/jpeg" if ext in [".jpg", ".jpeg"] else "image/png"
     
     payload = json.dumps({
-        "model": "claude-sonnet-4-20250514",
+        "model": "claude-sonnet-4-6",
         "max_tokens": 1000,
         "messages": [{
             "role": "user",
