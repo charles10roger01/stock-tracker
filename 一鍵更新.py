@@ -40,9 +40,9 @@ def read_screenshot_with_claude(image_path, api_key):
     with open(image_path, "rb") as f: image_data = base64.b64encode(f.read()).decode("utf-8")
     ext = os.path.splitext(image_path)[1].lower()
     mime = "image/jpeg" if ext in [".jpg",".jpeg"] else "image/png"
-    payload = json.dumps({"model":"claude-sonnet-4-6","max_tokens":1000,"messages":[{"role":"user","content":[
+    payload = json.dumps({"model":"claude-sonnet-4-6","max_tokens":1500,"messages":[{"role":"user","content":[
         {"type":"image","source":{"type":"base64","media_type":mime,"data":image_data}},
-        {"type":"text","text":"這是台股籌碼K線篩選清單截圖。請讀取所有股票的代號、名稱、細產業分類。只回傳純JSON，不含任何其他文字，格式：{\"stocks\":[{\"code\":\"2417\",\"name\":\"圓剛\",\"sector\":\"電子中游-PC介面卡\"}]}"}
+        {"type":"text","text":"這是台股籌碼K線篩選清單截圖。請讀取所有股票的：代號、名稱、細產業分類、成交價（收盤價）、乖離月線%（最右邊那欄）。只回傳純JSON，不含任何其他文字，格式：{\"stocks\":[{\"code\":\"2417\",\"name\":\"圓剛\",\"sector\":\"電子中游-PC介面卡\",\"price\":47.15,\"ma_deviation\":17.0}]}。如果某欄位看不清楚就填null。"}
     ]}]}).encode("utf-8")
     req = urllib.request.Request("https://api.anthropic.com/v1/messages",data=payload,
         headers={"Content-Type":"application/json","x-api-key":api_key,"anthropic-version":"2023-06-01"})
@@ -191,8 +191,26 @@ def main():
             if result and result.get("stocks"):
                 added = 0
                 for s in result["stocks"]:
-                    if not any(x["code"]==s["code"] for x in stocks):
-                        stocks.append({"code":s["code"],"name":s.get("name",""),"sector":s.get("sector",""),"prices":{},"addedDate":today()})
+                    existing = next((x for x in stocks if x["code"]==s["code"]), None)
+                    if not existing:
+                        # 新股票：用截圖的收盤價和乖離月線%反推月線
+                        price = s.get("price")
+                        ma_dev = s.get("ma_deviation")
+                        ma_total = None
+                        if price and ma_dev is not None:
+                            ma_price = price / (1 + ma_dev / 100)
+                            ma_total = ma_price * 20
+                            print(f"  {s['code']} 月線反推：{ma_price:.2f}（乖離{ma_dev}%）")
+                        new_stock = {
+                            "code": s["code"],
+                            "name": s.get("name",""),
+                            "sector": s.get("sector",""),
+                            "side": "bull",
+                            "prices": {},
+                            "ma_total": ma_total,
+                            "addedDate": today()
+                        }
+                        stocks.append(new_stock)
                         added += 1
                 print(f"✅ 讀取到 {len(result['stocks'])} 檔，新增 {added} 檔")
             else: print("⚠️ 無法讀取截圖內容")
@@ -210,7 +228,14 @@ def main():
             if "prices" not in s: s["prices"] = {}
             date_key = f"{trade_date.month}/{trade_date.day}"
             s["prices"][date_key] = price
-            print(f"✅ {price} ({date_key})")
+
+            # 滾動更新月線總值
+            if s.get("ma_total") is not None:
+                old_ma = s["ma_total"] / 20
+                s["ma_total"] = s["ma_total"] - old_ma + price
+                s["ma"] = s["ma_total"] / 20
+            
+            print(f"✅ {price} ({date_key}) 月線:{s.get('ma', 'N/A')}")
             success += 1
         else: print("⚠️ 無法取得")
         time.sleep(0.5)

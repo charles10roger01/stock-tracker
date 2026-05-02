@@ -334,7 +334,7 @@ function stockRow(s, idx, allDates, mode) {
   const peak=getPeak(s),pct=getPct(s);
   const st = mode==='bull'?getBullStatus(s):getBearStatus(s);
   const badge = mode==='bull'?bullBadge(st):bearBadge(st);
-  const ma = calcMA(s.prices||{},20);
+  const ma = s.ma ? s.ma.toFixed(2) : '-';
   const slope = calcMASlope(s.prices||{});
   const slopeStr = slope!==null?(slope>=0?'↑ '+Math.abs(slope*100).toFixed(2)+'%':'↓ '+Math.abs(slope*100).toFixed(2)+'%'):'-';
   const slopeColor = slope!==null?(slope>=0?'color:#dc2626':'color:#16a34a'):'';
@@ -345,7 +345,7 @@ function stockRow(s, idx, allDates, mode) {
     <td style="color:#888;font-size:11px;">${s.sector||'-'}</td>
     <td>${peak?peak.toFixed(2):'-'}</td>
     <td>${pct!==null?pct+'%':'-'}</td>
-    <td>${ma?ma.toFixed(2):'-'}</td>
+    <td>${ma}</td>
     <td style="${slopeColor};font-size:11px;">${slopeStr}</td>
     <td>${badge}</td>
     ${priceCells}
