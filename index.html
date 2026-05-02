@@ -440,12 +440,12 @@ function showPreview(e, code, name) {
     const header = document.getElementById('preview-header');
     const x = e.clientX + 16;
     const y = e.clientY - 100;
-    tooltip.style.left = Math.min(x, window.innerWidth - 420) + 'px';
+    tooltip.style.left = Math.min(x, window.innerWidth - 520) + 'px';
     tooltip.style.top = Math.max(y, 10) + 'px';
     tooltip.style.display = 'block';
     header.textContent = `${code} ${name} — 布林通道`;
     const container = document.getElementById('preview-iframe-container');
-    container.innerHTML = `<iframe src="https://histock.tw/stock/tchart.aspx?no=${code}&m=b" width="400" height="260" frameborder="0" scrolling="no" style="border-radius:6px;"></iframe>`;
+    container.innerHTML = `<div style="overflow:hidden;height:320px;border-radius:6px;"><iframe src="https://histock.tw/stock/tchart.aspx?no=${code}&m=b" width="500" height="900" frameborder="0" scrolling="no" style="margin-top:-200px;display:block;"></iframe></div>`;
   }, 400);
 }
 
