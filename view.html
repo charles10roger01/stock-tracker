@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>強勢股追蹤（唯讀）</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f5f5f5; color: #1a1a1a; font-size: 14px; }
+  .header { background: #fff; border-bottom: 1px solid #e5e5e5; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .header h1 { font-size: 18px; font-weight: 600; }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  .last-update { font-size: 12px; color: #888; }
+  .readonly-badge { font-size: 11px; padding: 3px 10px; border-radius: 5px; background: #f3f4f6; color: #6b7280; border: 1px solid #e5e5e5; }
+  .container { max-width: 1400px; margin: 0 auto; padding: 20px 24px; }
+
+  .mode-switch { display: flex; gap: 8px; margin-bottom: 20px; }
+  .mode-btn { padding: 10px 28px; border-radius: 8px; border: 1.5px solid #e5e5e5; background: #fff; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+  .mode-btn.bull { border-color: #dc2626; color: #dc2626; }
+  .mode-btn.bull.active { background: #dc2626; color: #fff; }
+  .mode-btn.bear { border-color: #16a34a; color: #16a34a; }
+  .mode-btn.bear.active { background: #16a34a; color: #fff; }
+
+  .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .metric { background: #fff; border-radius: 10px; border: 1px solid #e5e5e5; padding: 14px 16px; }
+  .metric-label { font-size: 11px; color: #888; margin-bottom: 6px; }
+  .metric-val { font-size: 24px; font-weight: 600; }
+  .metric-val.warn { color: #d97706; }
+  .metric-val.success { color: #16a34a; }
+  .metric-val.info { color: #2563eb; }
+  .metric-val.danger { color: #dc2626; }
+
+  .toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+  .view-toggle { display: flex; gap: 6px; }
+  .view-btn { padding: 6px 14px; border-radius: 6px; border: 1px solid #e5e5e5; background: #fff; color: #666; font-size: 12px; cursor: pointer; }
+  .view-btn.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+
+  .card { background: #fff; border-radius: 10px; border: 1px solid #e5e5e5; overflow: hidden; margin-bottom: 16px; }
+  .tbl-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { text-align: left; padding: 8px 10px; border-bottom: 1px solid #f0f0f0; color: #888; font-weight: 500; white-space: nowrap; background: #fafafa; }
+  td { padding: 8px 10px; border-bottom: 1px solid #f5f5f5; white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafafa; }
+
+  .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 5px; font-weight: 500; }
+  .b-fly { background: #dcfce7; color: #15803d; }
+  .b-near { background: #fef3c7; color: #b45309; }
+  .b-wait { background: #dbeafe; color: #1d4ed8; }
+  .b-drop { background: #fee2e2; color: #b91c1c; }
+  .b-unknown { background: #f3f4f6; color: #6b7280; }
+  .b-short-ready { background: #dcfce7; color: #15803d; }
+  .b-short-wait { background: #dbeafe; color: #1d4ed8; }
+  .peak-val { color: #dc2626; font-weight: 600; }
+  .stock-link { color: #2563eb; text-decoration: none; font-weight: 500; }
+  .stock-link:hover { text-decoration: underline; }
+
+  .group-header { padding: 10px 16px; background: #fafafa; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; }
+  .group-title { font-size: 13px; font-weight: 600; }
+  .group-count { font-size: 11px; color: #888; font-weight: 400; margin-left: 6px; }
+  .alert-tag { font-size: 11px; padding: 2px 8px; border-radius: 5px; background: #fef3c7; color: #b45309; font-weight: 500; }
+  .fly-tag { font-size: 11px; padding: 2px 8px; border-radius: 5px; background: #dcfce7; color: #15803d; font-weight: 500; }
+  .short-tag { font-size: 11px; padding: 2px 8px; border-radius: 5px; background: #dcfce7; color: #15803d; font-weight: 500; }
+  .empty { text-align: center; padding: 3rem; color: #aaa; font-size: 13px; }
+
+  /* 籌碼燈號 */
+  .chip-lights { display:flex; align-items:center; gap:3px; }
+  .chip-dot { width:11px; height:11px; border-radius:50%; display:inline-block; flex-shrink:0; cursor:default; }
+  .chip-dot.big-buy   { background:#dc2626; }
+  .chip-dot.small-buy  { background:#f9a8d4; }
+  .chip-dot.small-sell { background:#86efac; }
+  .chip-dot.big-sell   { background:#16a34a; }
+  .chip-dot.chip-unknown { background:#d1d5db; }
+  .chip-turn { font-size:12px; margin-left:2px; }
+
+  .preview-tooltip { position: fixed; background: #fff; border: 1px solid #e5e5e5; border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.12); padding: 12px; width: 600px; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; display: none; pointer-events: none; }
+  .preview-header { font-size: 12px; font-weight: 600; margin-bottom: 8px; color: #1a1a1a; }
+  @media (max-width: 600px) { .summary-grid { grid-template-columns: repeat(2, 1fr); } .container { padding: 12px; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>強勢股追蹤儀表板</h1>
+  <div class="header-right">
+    <span class="last-update" id="last-update">載入中...</span>
+    <span class="readonly-badge">👁 唯讀模式</span>
+  </div>
+</div>
+
+<div class="container">
+  <!-- 多方/空方主切換 -->
+  <div class="mode-switch">
+    <button class="mode-btn bull active" onclick="setMode('bull')">📈 多方追蹤</button>
+    <button class="mode-btn bear" onclick="setMode('bear')">📉 空方追蹤</button>
+  </div>
+
+  <!-- 籌碼圖例 -->
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;font-size:11px;color:#888;flex-wrap:wrap;">
+    <span style="font-weight:500;color:#555;">法人籌碼：</span>
+    <span><span class="chip-dot big-buy" style="display:inline-block;vertical-align:middle;"></span> 大買(&gt;1000張)</span>
+    <span><span class="chip-dot small-buy" style="display:inline-block;vertical-align:middle;"></span> 小買</span>
+    <span><span class="chip-dot small-sell" style="display:inline-block;vertical-align:middle;"></span> 小賣</span>
+    <span><span class="chip-dot big-sell" style="display:inline-block;vertical-align:middle;"></span> 大賣(&lt;-1000張)</span>
+    <span>⚡ 由賣轉買</span>
+    <span>⚠️ 由買轉賣</span>
+  </div>
+
+  <!-- 多方面板 -->
+  <div id="bull-panel">
+    <div class="summary-grid">
+      <div class="metric"><div class="metric-label">多方追蹤中</div><div class="metric-val" id="bull-cnt-total">0</div></div>
+      <div class="metric"><div class="metric-label">準備進場</div><div class="metric-val warn" id="bull-cnt-near">0</div></div>
+      <div class="metric"><div class="metric-label">仍在飆升</div><div class="metric-val success" id="bull-cnt-fly">0</div></div>
+      <div class="metric"><div class="metric-label">等待反彈</div><div class="metric-val info" id="bull-cnt-wait">0</div></div>
+    </div>
+    <div class="toolbar">
+      <div class="view-toggle">
+        <button class="view-btn active" onclick="setView('bull','all')">全部</button>
+        <button class="view-btn" onclick="setView('bull','group')">依族群</button>
+      </div>
+    </div>
+    <div id="bull-all-view"><div class="card"><div class="tbl-wrap"><table><thead id="bull-all-head"></thead><tbody id="bull-all-body"></tbody></table></div><div class="empty" id="bull-empty" style="display:none;">尚無多方追蹤股票</div></div></div>
+    <div id="bull-group-view" style="display:none;"></div>
+  </div>
+
+  <!-- 空方面板 -->
+  <div id="bear-panel" style="display:none;">
+    <div class="summary-grid">
+      <div class="metric"><div class="metric-label">空方追蹤中</div><div class="metric-val" id="bear-cnt-total">0</div></div>
+      <div class="metric"><div class="metric-label">接近月線</div><div class="metric-val success" id="bear-cnt-ready">0</div></div>
+      <div class="metric"><div class="metric-label">等待反彈</div><div class="metric-val info" id="bear-cnt-wait">0</div></div>
+      <div class="metric"><div class="metric-label">月線斜率</div><div class="metric-val danger">↓</div></div>
+    </div>
+    <div class="toolbar">
+      <div class="view-toggle">
+        <button class="view-btn active" onclick="setView('bear','all')">全部</button>
+        <button class="view-btn" onclick="setView('bear','group')">依族群</button>
+      </div>
+    </div>
+    <div id="bear-all-view"><div class="card"><div class="tbl-wrap"><table><thead id="bear-all-head"></thead><tbody id="bear-all-body"></tbody></table></div><div class="empty" id="bear-empty" style="display:none;">尚無空方追蹤股票</div></div></div>
+    <div id="bear-group-view" style="display:none;"></div>
+  </div>
+</div>
+
+<div id="preview-tooltip" class="preview-tooltip">
+  <div class="preview-header" id="preview-header"></div>
+  <div id="preview-iframe-container"></div>
+</div>
+
+<script>
+const REPO = 'charles10roger01/stock-tracker';
+const DATA_URL = `https://raw.githubusercontent.com/${REPO}/main/stocks.json`;
+
+let stocks = [];
+let currentMode = 'bull';
+let bullView = 'all';
+let bearView = 'all';
+
+// ===== 資料載入 =====
+async function init() {
+  try {
+    const r = await fetch(DATA_URL + '?t=' + Date.now());
+    if (r.ok) {
+      const data = await r.json();
+      stocks = data.stocks || [];
+      document.getElementById('last-update').textContent = '最後更新：' + (data.lastUpdate || '未知');
+    }
+  } catch(e) { document.getElementById('last-update').textContent = '資料載入失敗'; }
+  render();
+}
+
+function today() { const d = new Date(); return `${d.getMonth()+1}/${d.getDate()}`; }
+
+// ===== 籌碼燈號 =====
+const chipCache = {};
+
+async function fetchChip(code) {
+  if (chipCache[code]) return chipCache[code];
+  try {
+    const r = await fetch(`https://www.wantgoo.com/stock/${code}/institutional-investors/trend`);
+    if (!r.ok) return null;
+    const html = await r.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const rows = doc.querySelectorAll('table tr');
+    const results = [];
+    for (const row of rows) {
+      const cells = row.querySelectorAll('td');
+      if (cells.length < 6) continue;
+      const dateText = cells[0].textContent.trim();
+      if (!/^\d{4}\/\d{2}\/\d{2}$/.test(dateText)) continue;
+      const total = parseInt(cells[5].textContent.trim().replace(/,/g, ''), 10);
+      if (!isNaN(total)) results.push({ date: dateText, total });
+      if (results.length >= 3) break;
+    }
+    chipCache[code] = results;
+    return results;
+  } catch(e) { return null; }
+}
+
+function chipDot(total) {
+  if (total === null || total === undefined || isNaN(total))
+    return `<span class="chip-dot chip-unknown" title="無資料"></span>`;
+  if (total > 1000)  return `<span class="chip-dot big-buy"   title="大買 ${total.toLocaleString()}張"></span>`;
+  if (total > 0)     return `<span class="chip-dot small-buy"  title="小買 ${total.toLocaleString()}張"></span>`;
+  if (total > -1000) return `<span class="chip-dot small-sell" title="小賣 ${total.toLocaleString()}張"></span>`;
+  return               `<span class="chip-dot big-sell"  title="大賣 ${total.toLocaleString()}張"></span>`;
+}
+
+function chipTurnIcon(prev, curr) {
+  if (prev === null || curr === null || isNaN(prev) || isNaN(curr)) return '';
+  if (prev < 0 && curr > 0) return `<span class="chip-turn" title="由賣轉買">⚡</span>`;
+  if (prev > 0 && curr < 0) return `<span class="chip-turn" title="由買轉賣">⚠️</span>`;
+  return '';
+}
+
+async function renderChipCell(code, tdEl) {
+  const data = await fetchChip(code);
+  if (!data || data.length === 0) { tdEl.innerHTML = '<span style="color:#ccc;font-size:11px;">-</span>'; return; }
+  const [d0, d1, d2] = [data[0], data[1], data[2]];
+  const t0 = d0?.total ?? null, t1 = d1?.total ?? null, t2 = d2?.total ?? null;
+  const dots = [t2, t1, t0].map(t => t !== null ? chipDot(t) : '').join('');
+  const turn = chipTurnIcon(t1, t0);
+  tdEl.innerHTML = `<div class="chip-lights">${dots}${turn}</div>`;
+  tdEl.title = [d2,d1,d0].filter(Boolean).map(d=>`${d.date} ${d.total>=0?'+':''}${d.total.toLocaleString()}張`).join('\n');
+}
+
+// ===== 狀態計算 =====
+function calcMA(prices, period) {
+  const vals = Object.entries(prices).sort((a,b) => {
+    const [am,ad]=a[0].split('/').map(Number),[bm,bd]=b[0].split('/').map(Number);
+    return am!==bm?am-bm:ad-bd;
+  }).map(e=>Number(e[1])).filter(Boolean);
+  if (vals.length < period) return null;
+  return vals.slice(-period).reduce((a,b)=>a+b,0)/period;
+}
+
+function getPeak(s) { const v=Object.values(s.prices||{}).map(Number).filter(Boolean); return v.length?Math.max(...v):null; }
+function getLatest(s) { const e=Object.entries(s.prices||{}); return e.length?Number(e[e.length-1][1]):null; }
+function getPct(s) { const p=getPeak(s),l=getLatest(s); return (p&&l)?((l-p)/p*100).toFixed(1):null; }
+
+function getBullStatus(s) {
+  const vals=Object.values(s.prices||{}).map(Number).filter(Boolean);
+  if (!vals.length) return 'unknown';
+  const peak=Math.max(...vals),latest=vals[vals.length-1];
+  const pct=(latest-peak)/peak*100;
+  if (latest>=peak) return 'fly';
+  if (pct>=-3) return 'near';
+  if (pct>=-15) return 'wait';
+  return 'drop';
+}
+
+function getBearStatus(s) {
+  const ma = calcMA(s.prices||{}, 20), latest = getLatest(s);
+  if (!ma || !latest) return 'unknown';
+  return (latest - ma) / ma * 100 <= 3 ? 'short-ready' : 'short-wait';
+}
+
+function bullBadge(st) {
+  const map={fly:['仍在飆升','b-fly'],near:['準備進場','b-near'],wait:['等待反彈','b-wait'],drop:['大幅回落','b-drop'],unknown:['-','b-unknown']};
+  const [l,c]=map[st]||map.unknown; return `<span class="badge ${c}">${l}</span>`;
+}
+
+function bearBadge(st) {
+  const map={'short-ready':['接近月線','b-short-ready'],'short-wait':['等待反彈','b-short-wait'],unknown:['-','b-unknown']};
+  const [l,c]=map[st]||map.unknown; return `<span class="badge ${c}">${l}</span>`;
+}
+
+function getAllDates() {
+  return [...new Set(stocks.flatMap(s=>Object.keys(s.prices||{})))].sort((a,b)=>{
+    const [am,ad]=a.split('/').map(Number),[bm,bd]=b.split('/').map(Number);
+    return am!==bm?am-bm:ad-bd;
+  });
+}
+
+// ===== 渲染 =====
+function render() {
+  const allDates = getAllDates();
+  const bullStocks = stocks.filter(s => !s.side || s.side === 'bull');
+  const bearStocks = stocks.filter(s => s.side === 'bear');
+
+  let bFly=0,bNear=0,bWait=0;
+  bullStocks.forEach(s=>{const st=getBullStatus(s);if(st==='fly')bFly++;if(st==='near')bNear++;if(st==='wait')bWait++;});
+  document.getElementById('bull-cnt-total').textContent=bullStocks.length;
+  document.getElementById('bull-cnt-fly').textContent=bFly;
+  document.getElementById('bull-cnt-near').textContent=bNear;
+  document.getElementById('bull-cnt-wait').textContent=bWait;
+
+  let sReady=0,sWait=0;
+  bearStocks.forEach(s=>{const st=getBearStatus(s);if(st==='short-ready')sReady++;if(st==='short-wait')sWait++;});
+  document.getElementById('bear-cnt-total').textContent=bearStocks.length;
+  document.getElementById('bear-cnt-ready').textContent=sReady;
+  document.getElementById('bear-cnt-wait').textContent=sWait;
+
+  renderBullTable(bullStocks, allDates);
+  renderBearTable(bearStocks, allDates);
+  if (bullView==='group') renderGroups('bull', bullStocks, allDates);
+  if (bearView==='group') renderGroups('bear', bearStocks, allDates);
+}
+
+function stockRow(s, idx, allDates, mode) {
+  const peak=getPeak(s), pct=getPct(s);
+  const st = mode==='bull'?getBullStatus(s):getBearStatus(s);
+  const badge = mode==='bull'?bullBadge(st):bearBadge(st);
+  const ma = s.ma ? s.ma.toFixed(2) : '-';
+  const priceCells=allDates.map(d=>{const v=s.prices?.[d];return`<td class="${v&&Number(v)===peak?'peak-val':''}">${v||'-'}</td>`;}).join('');
+  const chipId = `chip-${s.code}-${idx}`;
+  setTimeout(() => { const tdEl=document.getElementById(chipId); if(tdEl) renderChipCell(s.code, tdEl); }, 0);
+  return `<tr>
+    <td><a class="stock-link" href="#" onclick="navigator.clipboard.writeText('${s.code}');return false;">${s.code}</a></td>
+    <td><a class="stock-link" href="https://www.wantgoo.com/stock/${s.code}/technical-chart" target="_blank" onmouseenter="showPreview(event,'${s.code}','${s.name||s.code}')" onmouseleave="hidePreview()" style="color:#1a1a1a;font-weight:500;">${s.name||'-'}</a></td>
+    <td style="color:#888;font-size:11px;">${s.sector||'-'}</td>
+    <td>${peak?peak.toFixed(2):'-'}</td>
+    <td>${pct!==null?pct+'%':'-'}</td>
+    <td>${ma}</td>
+    <td>${badge}</td>
+    <td id="${chipId}" style="min-width:64px;"><span style="color:#ccc;font-size:11px;">載入中</span></td>
+    ${priceCells}
+  </tr>`;
+}
+
+function renderBullTable(bullStocks, allDates) {
+  const empty = document.getElementById('bull-empty');
+  if (!bullStocks.length) { empty.style.display='block'; document.getElementById('bull-all-head').innerHTML=''; document.getElementById('bull-all-body').innerHTML=''; return; }
+  empty.style.display='none';
+  document.getElementById('bull-all-head').innerHTML=`<tr><th>代號</th><th>名稱</th><th>族群</th><th>前高</th><th>距前高</th><th>月線</th><th>狀態</th><th title="三大法人近三日（左舊右新）">法人籌碼</th>${allDates.map(d=>`<th>${d}</th>`).join('')}</tr>`;
+  document.getElementById('bull-all-body').innerHTML=bullStocks.map((s,i)=>stockRow(s,stocks.indexOf(s),allDates,'bull')).join('');
+}
+
+function renderBearTable(bearStocks, allDates) {
+  const empty = document.getElementById('bear-empty');
+  if (!bearStocks.length) { empty.style.display='block'; document.getElementById('bear-all-head').innerHTML=''; document.getElementById('bear-all-body').innerHTML=''; return; }
+  empty.style.display='none';
+  document.getElementById('bear-all-head').innerHTML=`<tr><th>代號</th><th>名稱</th><th>族群</th><th>前高</th><th>距前高</th><th>月線</th><th>狀態</th><th title="三大法人近三日（左舊右新）">法人籌碼</th>${allDates.map(d=>`<th>${d}</th>`).join('')}</tr>`;
+  document.getElementById('bear-all-body').innerHTML=bearStocks.map((s,i)=>stockRow(s,stocks.indexOf(s),allDates,'bear')).join('');
+}
+
+function renderGroups(mode, list, allDates) {
+  const groups={};
+  list.forEach(s=>{const g=s.sector||'未分類';if(!groups[g])groups[g]=[];groups[g].push(s);});
+  let html='';
+  Object.entries(groups).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([gName,items])=>{
+    const hasReady = mode==='bull'?items.some(s=>getBullStatus(s)==='near'):items.some(s=>getBearStatus(s)==='short-ready');
+    const hasFly = mode==='bull'&&items.some(s=>getBullStatus(s)==='fly');
+    html+=`<div class="card" style="margin-bottom:16px;">
+      <div class="group-header">
+        <div><span class="group-title">${gName}</span><span class="group-count">${items.length} 檔</span></div>
+        ${hasReady?(mode==='bull'?'<span class="alert-tag">有股票準備進場</span>':'<span class="short-tag">有股票接近月線</span>'):hasFly?'<span class="fly-tag">族群強勢中</span>':''}
+      </div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>代號</th><th>名稱</th><th>前高</th><th>距前高</th><th>月線</th><th>狀態</th><th>法人籌碼</th>${allDates.map(d=>`<th>${d}</th>`).join('')}</tr></thead>
+        <tbody>${items.map(s=>stockRow(s,stocks.indexOf(s),allDates,mode)).join('')}</tbody>
+      </table></div>
+    </div>`;
+  });
+  document.getElementById(`${mode}-group-view`).innerHTML=html||'<div class="empty">尚無股票</div>';
+}
+
+function setMode(mode) {
+  currentMode=mode;
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelector(`.mode-btn.${mode}`).classList.add('active');
+  document.getElementById('bull-panel').style.display=mode==='bull'?'block':'none';
+  document.getElementById('bear-panel').style.display=mode==='bear'?'block':'none';
+}
+
+function setView(mode, v) {
+  if (mode==='bull') bullView=v; else bearView=v;
+  document.getElementById(`${mode}-all-view`).style.display=v==='all'?'block':'none';
+  document.getElementById(`${mode}-group-view`).style.display=v==='group'?'block':'none';
+  document.querySelectorAll(`#${mode}-panel .view-btn`).forEach((b,i)=>b.classList.toggle('active',['all','group'][i]===v));
+  if (v==='group') { const allDates=getAllDates(); const list=stocks.filter(s=>mode==='bull'?(!s.side||s.side==='bull'):s.side==='bear'); renderGroups(mode,list,allDates); }
+}
+
+// ===== 懸浮預覽 =====
+let previewTimer=null;
+function showPreview(e,code,name) {
+  clearTimeout(previewTimer);
+  previewTimer=setTimeout(()=>{
+    const tooltip=document.getElementById('preview-tooltip');
+    document.getElementById('preview-header').textContent=`${code} ${name} — 布林通道`;
+    tooltip.style.display='block';
+    const imgUrl=`https://raw.githubusercontent.com/${REPO}/main/charts/${code}.png?t=${Date.now()}`;
+    document.getElementById('preview-iframe-container').innerHTML=`<img src="${imgUrl}" style="width:100%;border-radius:6px;" onerror="this.parentElement.innerHTML='<div style=padding:2rem;text-align:center;color:#aaa;font-size:13px;>圖表尚未生成</div>'">`;
+  },300);
+}
+function hidePreview() {
+  clearTimeout(previewTimer);
+  document.getElementById('preview-tooltip').style.display='none';
+  document.getElementById('preview-iframe-container').innerHTML='';
+}
+
+init();
+</script>
+</body>
+</html>

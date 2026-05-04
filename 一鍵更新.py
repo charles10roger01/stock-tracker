@@ -42,7 +42,7 @@ def read_screenshot_with_claude(image_path, api_key):
     mime = "image/jpeg" if ext in [".jpg",".jpeg"] else "image/png"
     payload = json.dumps({"model":"claude-sonnet-4-6","max_tokens":2000,"messages":[{"role":"user","content":[
         {"type":"image","source":{"type":"base64","media_type":mime,"data":image_data}},
-        {"type":"text","text":"這是台股籌碼K線篩選清單截圖。請讀取每一檔股票的：代號、名稱、細產業分類、成交價（收盤價）、乖離月線%、帶寬。只回傳純JSON，格式：{\"stocks\":[{\"code\":\"2417\",\"name\":\"圓剛\",\"sector\":\"電子中游-PC介面卡\",\"price\":47.15,\"ma_deviation\":17.0,\"bandwidth\":32.0}]}。看不清楚的欄位填null。"}
+        {"type":"text","text":"這是台股籌碼K線篩選清單截圖。請先看截圖最上方的欄位標題，再根據標題找到對應的數值，讀取每一檔股票的：代號、名稱、細產業分類、成交（收盤價）、帶寬、乖離月線%。注意：乖離月線%和乖離年線%是不同欄位，請確認讀取的是月線而非年線。只回傳純JSON，格式：{\"stocks\":[{\"code\":\"2417\",\"name\":\"圓剛\",\"sector\":\"電子中游-PC介面卡\",\"price\":47.15,\"ma_deviation\":17.0,\"bandwidth\":32.0}]}。看不清楚的欄位填null。"}
     ]}]}).encode("utf-8")
     req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=payload,
         headers={"Content-Type":"application/json","x-api-key":api_key,"anthropic-version":"2023-06-01"})
@@ -51,34 +51,28 @@ def read_screenshot_with_claude(image_path, api_key):
     match = re.search(r'\{[\s\S]*\}', text)
     return json.loads(match.group()) if match else None
 
+_tpex_cache = {}
+
 def fetch_closing_price(code):
-    """抓最近一個交易日的收盤價（最多往前找7天）"""
+    """用Yahoo Finance抓最近收盤價，自動判斷上市(.TW)或上櫃(.TWO)"""
     import datetime as dt
-    for days_back in range(7):
-        d = datetime.now() - dt.timedelta(days=days_back)
-        date_str = d.strftime("%Y%m%d")
-        # 上市
+    for suffix in ['.TW', '.TWO']:
         try:
-            req = urllib.request.Request(
-                f"https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY?stockNo={code}&date={date_str}&response=json",
-                headers={"User-Agent":"Mozilla/5.0"})
-            with urllib.request.urlopen(req, timeout=5) as r:
+            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{code}{suffix}?interval=1d&range=5d"
+            req = urllib.request.Request(url, headers={"User-Agent":"Mozilla/5.0","Accept":"application/json"})
+            with urllib.request.urlopen(req, timeout=10) as r:
                 data = json.loads(r.read())
-                if data.get("stat")=="OK" and data.get("data"):
-                    return float(data["data"][-1][6].replace(",","")), d
-        except: pass
-        # 上櫃（民國年）
-        try:
-            roc_year = d.year - 1911
-            date_roc = f"{roc_year}/{d.month:02d}/{d.day:02d}"
-            req2 = urllib.request.Request(
-                f"https://www.tpex.org.tw/web/stock/aftertrading/daily_trading_info/st43_result.php?l=zh-tw&d={date_roc}&stkno={code}&s=0,asc",
-                headers={"User-Agent":"Mozilla/5.0"})
-            with urllib.request.urlopen(req2, timeout=5) as r:
-                data2 = json.loads(r.read())
-                if data2.get("aaData"):
-                    return float(data2["aaData"][-1][2].replace(",","")), d
-        except: pass
+            result = data.get("chart",{}).get("result",[])
+            if not result: continue
+            timestamps = result[0].get("timestamp",[])
+            closes = result[0].get("indicators",{}).get("quote",[{}])[0].get("close",[])
+            if not timestamps or not closes: continue
+            # 找最近有效收盤價
+            for ts, price in zip(reversed(timestamps), reversed(closes)):
+                if price is not None:
+                    trade_date = dt.datetime.fromtimestamp(ts)
+                    return round(float(price), 2), trade_date
+        except: continue
     return None, None
 
 def fetch_all_prices(stocks):
@@ -88,7 +82,7 @@ def fetch_all_prices(stocks):
         price, trade_date = fetch_closing_price(s["code"])
         return s["code"], price, trade_date
 
-    with ThreadPoolExecutor(max_workers=8) as executor:
+    with ThreadPoolExecutor(max_workers=3) as executor:
         futures = {executor.submit(fetch_one, s): s for s in stocks}
         for future in as_completed(futures):
             code, price, trade_date = future.result()
@@ -131,30 +125,77 @@ def draw_chart(s):
 
     x = list(range(len(dates)))
 
-    # 畫收盤價折線
-    ax.plot(x, closes, color='#1a1a1a', linewidth=1.5, label='收盤價', zorder=3)
+    # 計算每天的MA和布林通道（滾動）
+    ma_vals = []
+    upper_vals = []
+    lower_vals = []
+    ma_t = s.get("ma_total")
+    # 反推初始帶寬百分比（從第一天的上下軌和月線）
+    init_upper = s.get("bband_upper")
+    init_lower = s.get("bband_lower")
+    bw_pct = None
+    if ma_t is not None and init_upper is not None:
+        first_ma = ma_t / 20
+        if first_ma > 0:
+            bw_pct = (init_upper - first_ma) / first_ma  # 保持這個帶寬百分比
 
-    # 如果有布林通道資料
-    if ma_total and len(closes) >= 1:
-        ma = ma_total / 20
-        # 用已知的上下軌（第一天）
-        if bband_upper and bband_lower:
-            ax.axhline(y=ma, color='#2563eb', linewidth=1, linestyle='--', alpha=0.7, label=f'月線 {ma:.1f}')
-            ax.axhline(y=bband_upper, color='#dc2626', linewidth=0.8, linestyle=':', alpha=0.6, label=f'上軌 {bband_upper:.1f}')
-            ax.axhline(y=bband_lower, color='#16a34a', linewidth=0.8, linestyle=':', alpha=0.6, label=f'下軌 {bband_lower:.1f}')
+    for i, price in enumerate(closes):
+        if ma_t is not None:
+            ma_v = ma_t / 20
+            ma_vals.append(ma_v)
+            # 用帶寬百分比估算上下軌（跟月線平行移動）
+            if bw_pct is not None:
+                upper_vals.append(ma_v * (1 + bw_pct))
+                lower_vals.append(ma_v * (1 - bw_pct))
+            else:
+                upper_vals.append(None)
+                lower_vals.append(None)
+            # 滾動月線到下一天（帶寬百分比保持不變）
+            if i + 1 < len(closes):
+                old_ma = ma_t / 20
+                ma_t = ma_t - old_ma + closes[i + 1]
         else:
-            ax.axhline(y=ma, color='#2563eb', linewidth=1, linestyle='--', alpha=0.7, label=f'月線 {ma:.1f}')
+            ma_vals.append(None)
+            upper_vals.append(None)
+            lower_vals.append(None)
 
-    # 標記最高點
-    if closes:
-        peak = max(closes)
-        peak_idx = closes.index(peak)
-        ax.annotate(f'{peak:.1f}', xy=(peak_idx, peak), xytext=(0, 8),
-            textcoords='offset points', ha='center', fontsize=8, color='#dc2626')
+    # 畫收盤價
+    if len(closes) == 1:
+        ax.scatter(x, closes, color='#1a1a1a', s=50, zorder=3, label=f'Price {closes[-1]:.2f}')
+    else:
+        ax.plot(x, closes, color='#1a1a1a', linewidth=1.5, marker='o', markersize=3, zorder=3, label=f'Price {closes[-1]:.2f}')
+
+    # 畫MA20
+    valid_ma = [(i, v) for i, v in enumerate(ma_vals) if v is not None]
+    if valid_ma:
+        xi, yi = zip(*valid_ma)
+        if len(xi) == 1:
+            ax.scatter(xi, yi, color='#2563eb', s=30, zorder=2, label=f'MA20 {yi[0]:.1f}')
+        else:
+            ax.plot(xi, yi, color='#2563eb', linewidth=1, linestyle='--', alpha=0.7, label=f'MA20')
+
+    # 畫上軌
+    valid_upper = [(i, v) for i, v in enumerate(upper_vals) if v is not None]
+    if valid_upper:
+        xi, yi = zip(*valid_upper)
+        if len(xi) == 1:
+            ax.scatter(xi, yi, color='#dc2626', s=30, zorder=2, marker='^', label=f'Upper {yi[0]:.1f}')
+        else:
+            ax.plot(xi, yi, color='#dc2626', linewidth=0.8, linestyle=':', alpha=0.6, label='Upper')
+
+    # 畫下軌
+    valid_lower = [(i, v) for i, v in enumerate(lower_vals) if v is not None]
+    if valid_lower:
+        xi, yi = zip(*valid_lower)
+        if len(xi) == 1:
+            ax.scatter(xi, yi, color='#16a34a', s=30, zorder=2, marker='v', label=f'Lower {yi[0]:.1f}')
+        else:
+            ax.plot(xi, yi, color='#16a34a', linewidth=0.8, linestyle=':', alpha=0.6, label='Lower')
 
     # 設定外觀
-    ax.set_title(f"{s['code']} {s.get('name','')} — 收盤價+布林通道", fontsize=11, pad=8,
-                 fontproperties=get_font())
+    ax.set_xlim(-3, max(len(dates) + 17, 17))
+    ax.margins(y=0.15)  # 上下各留15%空白，股價突破上軌也不會被截掉
+    ax.set_title(f"{s['code']} — Price + Bollinger Band", fontsize=11, pad=8)
     ax.set_xticks(x[::max(1, len(x)//6)])
     ax.set_xticklabels([dates[i] for i in x[::max(1, len(x)//6)]], fontsize=7, rotation=30)
     ax.tick_params(axis='y', labelsize=8)
@@ -168,19 +209,6 @@ def draw_chart(s):
     plt.savefig(buf, format='PNG', dpi=120, bbox_inches='tight')
     plt.close()
     return buf.getvalue()
-
-def get_font():
-    """取得中文字型"""
-    try:
-        from matplotlib.font_manager import FontProperties
-        # Windows常見中文字型
-        for font in ['Microsoft JhengHei', 'Microsoft YaHei', 'SimHei', 'Arial Unicode MS']:
-            try:
-                fp = FontProperties(family=font)
-                return fp
-            except: pass
-    except: pass
-    return None
 
 def get_github_file(repo, filename, token):
     req = urllib.request.Request(f"https://api.github.com/repos/{repo}/contents/{filename}",
@@ -243,12 +271,15 @@ def main():
             result = read_screenshot_with_claude(latest, anthropic_key)
             if result and result.get("stocks"):
                 added = 0
+                updated = 0
                 for s in result["stocks"]:
                     existing = next((x for x in stocks if x["code"]==s["code"]), None)
+                    price = s.get("price")
+                    ma_dev = s.get("ma_deviation")
+                    bandwidth = s.get("bandwidth")
+
                     if not existing:
-                        price = s.get("price")
-                        ma_dev = s.get("ma_deviation")
-                        bandwidth = s.get("bandwidth")
+                        # 新股票：反推月線、上下軌
                         ma_total = None
                         bband_upper = None
                         bband_lower = None
@@ -258,7 +289,9 @@ def main():
                             if bandwidth is not None:
                                 bband_upper = ma_price * (1 + bandwidth / 200)
                                 bband_lower = ma_price * (1 - bandwidth / 200)
-                            print(f"  {s['code']} 月線:{ma_price:.2f} 上軌:{bband_upper:.2f if bband_upper else 'N/A'} 下軌:{bband_lower:.2f if bband_lower else 'N/A'}")
+                            upper_str = f"{bband_upper:.2f}" if bband_upper else "N/A"
+                            lower_str = f"{bband_lower:.2f}" if bband_lower else "N/A"
+                            print(f"  新增 {s['code']} 月線:{ma_price:.2f} 上軌:{upper_str} 下軌:{lower_str}")
                         stocks.append({
                             "code": s["code"], "name": s.get("name",""),
                             "sector": s.get("sector",""), "side": "bull",
@@ -267,7 +300,14 @@ def main():
                             "addedDate": today()
                         })
                         added += 1
-                print(f"✅ 讀取到 {len(result['stocks'])} 檔，新增 {added} 檔")
+                    else:
+                        # 已存在：用新截圖的帶寬更新（用當前月線重新計算上下軌）
+                        if bandwidth is not None and existing.get("ma_total") is not None:
+                            ma_price = existing["ma_total"] / 20  # 當前滾動月線值
+                            existing["bband_upper"] = round(ma_price * (1 + bandwidth / 200), 2)
+                            existing["bband_lower"] = round(ma_price * (1 - bandwidth / 200), 2)
+                            updated += 1
+                print(f"✅ 讀取到 {len(result['stocks'])} 檔，新增 {added} 檔，更新帶寬 {updated} 檔")
             else: print("⚠️ 無法讀取截圖內容")
         except Exception as e: print(f"⚠️ AI 讀取失敗：{e}")
     else:
@@ -284,21 +324,23 @@ def main():
         if price:
             if "prices" not in s: s["prices"] = {}
             date_key = f"{trade_date.month}/{trade_date.day}"
-            s["prices"][date_key] = price
-            # 滾動更新月線
-            if s.get("ma_total") is not None:
-                old_ma = s["ma_total"] / 20
-                s["ma_total"] = s["ma_total"] - old_ma + price
-                s["ma"] = round(s["ma_total"] / 20, 2)
+            # 只有新日期才更新月線，避免重複計算
+            if date_key not in s["prices"]:
+                s["prices"][date_key] = price
+                if s.get("ma_total") is not None:
+                    old_ma = s["ma_total"] / 20
+                    s["ma_total"] = s["ma_total"] - old_ma + price
+                    s["ma"] = round(s["ma_total"] / 20, 2)
             print(f"  ✅ {s['code']} {s.get('name','')} {price} ({date_key}) 月線:{s.get('ma','N/A')}")
             success += 1
         else:
             print(f"  ⚠️ {s['code']} {s.get('name','')} 無法取得")
     print(f"\n⏱️ 收盤價更新完成，耗時 {time.time()-t0:.1f} 秒，成功 {success}/{len(stocks)} 檔")
 
-    # 畫圖並上傳
+    # 畫圖並上傳（失敗自動重試一次）
     print(f"\n📊 開始畫布林通道圖...")
     chart_success = 0
+    failed = []
     for s in stocks:
         print(f"  畫圖 {s['code']} {s.get('name','')}...", end=" ", flush=True)
         try:
@@ -310,7 +352,24 @@ def main():
             else:
                 print("⚠️ 資料不足")
         except Exception as e:
-            print(f"⚠️ {e}")
+            print(f"⚠️ {e}，稍後重試")
+            failed.append(s)
+
+    if failed:
+        print(f"\n🔄 重試 {len(failed)} 檔失敗的圖表...")
+        time.sleep(5)
+        for s in failed:
+            print(f"  重試 {s['code']} {s.get('name','')}...", end=" ", flush=True)
+            try:
+                img_bytes = draw_chart(s)
+                if img_bytes:
+                    upload_image_to_github(f"charts/{s['code']}.png", img_bytes, github_token)
+                    print("✅")
+                    chart_success += 1
+                else:
+                    print("⚠️ 資料不足")
+            except Exception as e:
+                print(f"❌ {e}")
     print(f"📊 圖表完成：{chart_success}/{len(stocks)} 檔")
 
     # 上傳stocks.json
