@@ -67,7 +67,6 @@ def fetch_closing_price(code):
             timestamps = result[0].get("timestamp",[])
             closes = result[0].get("indicators",{}).get("quote",[{}])[0].get("close",[])
             if not timestamps or not closes: continue
-            # 找最近有效收盤價
             for ts, price in zip(reversed(timestamps), reversed(closes)):
                 if price is not None:
                     trade_date = dt.datetime.fromtimestamp(ts)
@@ -96,7 +95,6 @@ def fetch_chip_data(code):
         req = urllib.request.Request(url, headers={"User-Agent":"Mozilla/5.0","Accept":"text/html"})
         with urllib.request.urlopen(req, timeout=10) as r:
             html = r.read().decode("utf-8", errors="ignore")
-        # 用 re 找表格資料
         rows = re.findall(r'<tr[^>]*>(.*?)</tr>', html, re.DOTALL)
         results = []
         for row in rows:
@@ -126,7 +124,7 @@ def fetch_all_chips(stocks):
             results[code] = chip
     return results
 
-
+def draw_chart(s):
     """用matplotlib畫折線圖+布林通道"""
     try:
         import matplotlib
@@ -141,7 +139,6 @@ def fetch_all_chips(stocks):
     if not prices:
         return None
 
-    # 排序日期
     sorted_entries = sorted(prices.items(), key=lambda x: (
         int(x[0].split('/')[0]), int(x[0].split('/')[1])
     ))
@@ -151,7 +148,6 @@ def fetch_all_chips(stocks):
     if len(closes) < 1:
         return None
 
-    # 計算布林通道（滾動）
     ma_total = s.get("ma_total")
     bband_upper = s.get("bband_upper")
     bband_lower = s.get("bband_lower")
@@ -162,32 +158,28 @@ def fetch_all_chips(stocks):
 
     x = list(range(len(dates)))
 
-    # 計算每天的MA和布林通道（滾動）
     ma_vals = []
     upper_vals = []
     lower_vals = []
     ma_t = s.get("ma_total")
-    # 反推初始帶寬百分比（從第一天的上下軌和月線）
     init_upper = s.get("bband_upper")
     init_lower = s.get("bband_lower")
     bw_pct = None
     if ma_t is not None and init_upper is not None:
         first_ma = ma_t / 20
         if first_ma > 0:
-            bw_pct = (init_upper - first_ma) / first_ma  # 保持這個帶寬百分比
+            bw_pct = (init_upper - first_ma) / first_ma
 
     for i, price in enumerate(closes):
         if ma_t is not None:
             ma_v = ma_t / 20
             ma_vals.append(ma_v)
-            # 用帶寬百分比估算上下軌（跟月線平行移動）
             if bw_pct is not None:
                 upper_vals.append(ma_v * (1 + bw_pct))
                 lower_vals.append(ma_v * (1 - bw_pct))
             else:
                 upper_vals.append(None)
                 lower_vals.append(None)
-            # 滾動月線到下一天（帶寬百分比保持不變）
             if i + 1 < len(closes):
                 old_ma = ma_t / 20
                 ma_t = ma_t - old_ma + closes[i + 1]
@@ -196,13 +188,11 @@ def fetch_all_chips(stocks):
             upper_vals.append(None)
             lower_vals.append(None)
 
-    # 畫收盤價
     if len(closes) == 1:
         ax.scatter(x, closes, color='#1a1a1a', s=50, zorder=3, label=f'Price {closes[-1]:.2f}')
     else:
         ax.plot(x, closes, color='#1a1a1a', linewidth=1.5, marker='o', markersize=3, zorder=3, label=f'Price {closes[-1]:.2f}')
 
-    # 畫MA20
     valid_ma = [(i, v) for i, v in enumerate(ma_vals) if v is not None]
     if valid_ma:
         xi, yi = zip(*valid_ma)
@@ -211,7 +201,6 @@ def fetch_all_chips(stocks):
         else:
             ax.plot(xi, yi, color='#2563eb', linewidth=1, linestyle='--', alpha=0.7, label=f'MA20')
 
-    # 畫上軌
     valid_upper = [(i, v) for i, v in enumerate(upper_vals) if v is not None]
     if valid_upper:
         xi, yi = zip(*valid_upper)
@@ -220,7 +209,6 @@ def fetch_all_chips(stocks):
         else:
             ax.plot(xi, yi, color='#dc2626', linewidth=0.8, linestyle=':', alpha=0.6, label='Upper')
 
-    # 畫下軌
     valid_lower = [(i, v) for i, v in enumerate(lower_vals) if v is not None]
     if valid_lower:
         xi, yi = zip(*valid_lower)
@@ -229,9 +217,8 @@ def fetch_all_chips(stocks):
         else:
             ax.plot(xi, yi, color='#16a34a', linewidth=0.8, linestyle=':', alpha=0.6, label='Lower')
 
-    # 設定外觀
     ax.set_xlim(-3, max(len(dates) + 17, 17))
-    ax.margins(y=0.15)  # 上下各留15%空白，股價突破上軌也不會被截掉
+    ax.margins(y=0.15)
     ax.set_title(f"{s['code']} — Price + Bollinger Band", fontsize=11, pad=8)
     ax.set_xticks(x[::max(1, len(x)//6)])
     ax.set_xticklabels([dates[i] for i in x[::max(1, len(x)//6)]], fontsize=7, rotation=30)
@@ -296,7 +283,6 @@ def main():
     except Exception as e:
         print(f"❌ 無法連接 GitHub：{e}"); input("\n按 Enter 關閉..."); return
 
-    # 讀取截圖
     print(f"\n🔍 搜尋截圖資料夾：{SCREENSHOT_DIR}")
     if not os.path.exists(SCREENSHOT_DIR):
         os.makedirs(SCREENSHOT_DIR)
@@ -316,7 +302,6 @@ def main():
                     bandwidth = s.get("bandwidth")
 
                     if not existing:
-                        # 新股票：反推月線、上下軌
                         ma_total = None
                         bband_upper = None
                         bband_lower = None
@@ -338,9 +323,8 @@ def main():
                         })
                         added += 1
                     else:
-                        # 已存在：用新截圖的帶寬更新（用當前月線重新計算上下軌）
                         if bandwidth is not None and existing.get("ma_total") is not None:
-                            ma_price = existing["ma_total"] / 20  # 當前滾動月線值
+                            ma_price = existing["ma_total"] / 20
                             existing["bband_upper"] = round(ma_price * (1 + bandwidth / 200), 2)
                             existing["bband_lower"] = round(ma_price * (1 - bandwidth / 200), 2)
                             updated += 1
@@ -350,7 +334,6 @@ def main():
     else:
         print("⚠️ 截圖資料夾是空的，跳過新增股票")
 
-    # 並行抓收盤價
     today_str = today()
     print(f"\n📅 並行更新收盤價（{today_str}）...\n📋 追蹤股票數：{len(stocks)} 檔")
     t0 = time.time()
@@ -361,7 +344,6 @@ def main():
         if price:
             if "prices" not in s: s["prices"] = {}
             date_key = f"{trade_date.month}/{trade_date.day}"
-            # 只有新日期才更新月線，避免重複計算
             if date_key not in s["prices"]:
                 s["prices"][date_key] = price
                 if s.get("ma_total") is not None:
@@ -374,7 +356,6 @@ def main():
             print(f"  ⚠️ {s['code']} {s.get('name','')} 無法取得")
     print(f"\n⏱️ 收盤價更新完成，耗時 {time.time()-t0:.1f} 秒，成功 {success}/{len(stocks)} 檔")
 
-    # 抓籌碼資料
     print(f"\n📊 抓取三大法人籌碼...")
     chip_results = fetch_all_chips(stocks)
     chip_success = 0
@@ -388,7 +369,6 @@ def main():
             print(f"  ⚠️ {s['code']} {s.get('name','')} 籌碼抓取失敗")
     print(f"📊 籌碼完成：{chip_success}/{len(stocks)} 檔")
 
-    # 畫圖並上傳（失敗自動重試一次）
     print(f"\n📊 開始畫布林通道圖...")
     chart_success = 0
     failed = []
@@ -423,7 +403,6 @@ def main():
                 print(f"❌ {e}")
     print(f"📊 圖表完成：{chart_success}/{len(stocks)} 檔")
 
-    # 上傳stocks.json
     data["stocks"] = stocks
     data["lastUpdate"] = today_str
     new_content = json.dumps(data, ensure_ascii=False, indent=2)
