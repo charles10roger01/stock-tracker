@@ -370,12 +370,7 @@ function stockRow(s, idx, allDates, mode) {
   const badge = mode==='bull'?bullBadge(st):bearBadge(st);
   const ma = s.ma ? s.ma.toFixed(2) : '-';
   const priceCells=allDates.map(d=>{const v=s.prices?.[d];return`<td class="${v&&Number(v)===peak?'peak-val':''}">${v||'-'}</td>`;}).join('');
-  const chipId = `chip-${s.code}-${idx}`;
   const isChecked = checkedCodes.has(s.code);
-  setTimeout(() => {
-    const tdEl = document.getElementById(chipId);
-    if (tdEl) renderChipCell(s.code, tdEl);
-  }, 0);
   return `<tr>
     <td><input type="checkbox" class="row-check" data-code="${s.code}" ${isChecked?'checked':''} onchange="toggleCheck('${s.code}',this.checked)"></td>
     <td><a class="stock-link" href="#" onclick="copyCode('${s.code}');return false;">${s.code}</a></td>
@@ -385,7 +380,7 @@ function stockRow(s, idx, allDates, mode) {
     <td>${pct!==null?pct+'%':'-'}</td>
     <td>${ma}</td>
     <td>${badge}</td>
-    <td id="${chipId}" style="min-width:64px;"><span style="color:#ccc;font-size:11px;">載入中</span></td>
+    <td style="min-width:64px;">${renderChip(s)}</td>
     ${priceCells}
     <td>
       ${mode==='bull'?`<button class="btn btn-sm" style="margin-right:4px;color:#16a34a;border-color:#86efac;" onclick="moveToBear(${idx})">→空</button>`:`<button class="btn btn-sm" style="margin-right:4px;color:#dc2626;border-color:#fca5a5;" onclick="moveToBull(${idx})">→多</button>`}
@@ -515,33 +510,7 @@ function importStocks(input) {
   reader.readAsText(file);
 }
 
-// ===== 籌碼燈號 =====
-const chipCache = {};
-
-async function fetchChip(code) {
-  if (chipCache[code]) return chipCache[code];
-  try {
-    const r = await fetch(`https://www.wantgoo.com/stock/${code}/institutional-investors/trend`);
-    if (!r.ok) return null;
-    const html = await r.text();
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    const rows = doc.querySelectorAll('table tr');
-    const results = [];
-    for (const row of rows) {
-      const cells = row.querySelectorAll('td');
-      if (cells.length < 6) continue;
-      const dateText = cells[0].textContent.trim();
-      if (!/^\d{4}\/\d{2}\/\d{2}$/.test(dateText)) continue;
-      const total = parseInt(cells[5].textContent.trim().replace(/,/g, ''), 10);
-      if (!isNaN(total)) results.push({ date: dateText, total });
-      if (results.length >= 3) break;
-    }
-    chipCache[code] = results;
-    return results;
-  } catch(e) { return null; }
-}
-
+// ===== 籌碼燈號（從stocks.json讀取）=====
 function chipDot(total) {
   if (total === null || total === undefined || isNaN(total))
     return `<span class="chip-dot chip-unknown" title="無資料"></span>`;
@@ -558,22 +527,17 @@ function chipTurnIcon(prev, curr) {
   return '';
 }
 
-async function renderChipCell(code, tdEl) {
-  const data = await fetchChip(code);
-  if (!data || data.length === 0) {
-    tdEl.innerHTML = '<span style="color:#ccc;font-size:11px;">-</span>';
-    return;
-  }
-  const [d0, d1, d2] = [data[0], data[1], data[2]];
+function renderChip(s) {
+  const chip = s.chip;
+  if (!chip || chip.length === 0) return '<span style="color:#ccc;font-size:11px;">-</span>';
+  const [d0, d1, d2] = [chip[0], chip[1], chip[2]];
   const t0 = d0?.total ?? null;
   const t1 = d1?.total ?? null;
   const t2 = d2?.total ?? null;
-  // 左到右：前前天 → 前天 → 今天
   const dots = [t2, t1, t0].map(t => t !== null ? chipDot(t) : '').join('');
   const turn = chipTurnIcon(t1, t0);
-  tdEl.innerHTML = `<div class="chip-lights">${dots}${turn}</div>`;
-  tdEl.title = [d2,d1,d0].filter(Boolean)
-    .map(d=>`${d.date} ${d.total>=0?'+':''}${d.total.toLocaleString()}張`).join('\n');
+  const tooltip = chip.map(d=>`${d.date} ${d.total>=0?'+':''}${d.total.toLocaleString()}張`).join('\n');
+  return `<div class="chip-lights" title="${tooltip}">${dots}${turn}</div>`;
 }
 
 // ===== 勾選 & 匯出股號列表 =====
