@@ -1,4 +1,299 @@
 {
-  "stocks": [],
-  "lastUpdate": "5/2"
+  "stocks": [
+    {
+      "code": "3498",
+      "name": "陽程",
+      "sector": "電子中游-儀器設...",
+      "side": "bull",
+      "prices": {
+        "4/30": 87.7
+      },
+      "ma_total": 1651.833219470538,
+      "bband_upper": 95.49444918872757,
+      "bband_lower": 69.15115286080272,
+      "addedDate": "5/5",
+      "ma": 82.59
+    },
+    {
+      "code": "3580",
+      "name": "友威科",
+      "sector": "電子中游-儀器設...",
+      "side": "bull",
+      "prices": {
+        "4/30": 85.9
+      },
+      "ma_total": 1628.1184006878761,
+      "bband_upper": 92.53310404127258,
+      "bband_lower": 69.80567497850387,
+      "addedDate": "5/5",
+      "ma": 81.41
+    },
+    {
+      "code": "6412",
+      "name": "群電",
+      "sector": "電子中游-電源供...",
+      "side": "bull",
+      "prices": {
+        "4/30": 81.0
+      },
+      "ma_total": 1575.1747572815532,
+      "bband_upper": 85.32524271844659,
+      "bband_lower": 71.95631067961165,
+      "addedDate": "5/5",
+      "ma": 78.76
+    },
+    {
+      "code": "2465",
+      "name": "麗臺",
+      "sector": "電子中游-主機板",
+      "side": "bull",
+      "prices": {
+        "4/30": 74.0
+      },
+      "ma_total": 1300.4869151467087,
+      "bband_upper": 82.30372720063441,
+      "bband_lower": 46.80015860428231,
+      "addedDate": "5/5",
+      "ma": 65.02
+    },
+    {
+      "code": "2417",
+      "name": "圓剛",
+      "sector": "電子中游-PC介面卡",
+      "side": "bull",
+      "prices": {
+        "4/30": 47.15
+      },
+      "ma_total": 829.5029411764706,
+      "bband_upper": 49.41176470588235,
+      "bband_lower": 32.94117647058823,
+      "addedDate": "5/5",
+      "ma": 41.48
+    },
+    {
+      "code": "6405",
+      "name": "悅城",
+      "sector": "電子中游-LCD-零...",
+      "side": "bull",
+      "prices": {
+        "4/30": 50.9
+      },
+      "ma_total": 792.0723656664339,
+      "bband_upper": 54.22260990928123,
+      "bband_lower": 23.79553384508025,
+      "addedDate": "5/5",
+      "ma": 39.6
+    },
+    {
+      "code": "3691",
+      "name": "碩禾",
+      "sector": "電子下游-太陽能",
+      "side": "bull",
+      "prices": {
+        "4/30": 118.0
+      },
+      "ma_total": 2307.056939501779,
+      "bband_upper": 131.9194839857651,
+      "bband_lower": 98.50756227758006,
+      "addedDate": "5/5",
+      "ma": 115.35
+    },
+    {
+      "code": "3016",
+      "name": "嘉晶",
+      "sector": "電子上游-晶圓材料",
+      "side": "bull",
+      "prices": {
+        "4/30": 89.7
+      },
+      "ma_total": 1356.3666666666663,
+      "bband_upper": 105.99999999999997,
+      "bband_lower": 27.333333333333332,
+      "addedDate": "5/5",
+      "ma": 67.82
+    },
+    {
+      "code": "2328",
+      "name": "廣宇",
+      "sector": "電子上游-連接元件",
+      "side": "bull",
+      "prices": {
+        "4/30": 49.55
+      },
+      "ma_total": 921.786286919831,
+      "bband_upper": 51.18649789029535,
+      "bband_lower": 40.62784810126582,
+      "addedDate": "5/5",
+      "ma": 46.09
+    },
+    {
+      "code": "8121",
+      "name": "越峰",
+      "sector": "電子上游-被動元件",
+      "side": "bull",
+      "prices": {
+        "4/30": 28.5
+      },
+      "ma_total": 531.1582278481012,
+      "bband_upper": 31.879113924050632,
+      "bband_lower": 21.032278481012657,
+      "addedDate": "5/5",
+      "ma": 26.56
+    },
+    {
+      "code": "3135",
+      "name": "凌航",
+      "sector": "電子上游-記憶體...",
+      "side": "bull",
+      "prices": {
+        "5/4": 155.5
+      },
+      "ma_total": 2538.1612903225805,
+      "bband_upper": 159.8891129032258,
+      "bband_lower": 90.91733870967742,
+      "addedDate": "5/5",
+      "ma": 126.91
+    },
+    {
+      "code": "5464",
+      "name": "森宏",
+      "sector": "電子上游-PCB-製造",
+      "side": "bull",
+      "prices": {
+        "4/30": 33.0
+      },
+      "ma_total": 616.4901625320787,
+      "bband_upper": 35.16295979469632,
+      "bband_lower": 26.25705731394354,
+      "addedDate": "5/5",
+      "ma": 30.82
+    },
+    {
+      "code": "6234",
+      "name": "高僑",
+      "sector": "電子上游-PCB-材...",
+      "side": "bull",
+      "prices": {
+        "4/30": 52.8
+      },
+      "ma_total": 765.1464770523592,
+      "bband_upper": 68.23529411764704,
+      "bband_lower": 6.748545572074985,
+      "addedDate": "5/5",
+      "ma": 38.26
+    },
+    {
+      "code": "8074",
+      "name": "鉅橡",
+      "sector": "電子上游-PCB-材...",
+      "side": "bull",
+      "prices": {
+        "4/30": 80.3
+      },
+      "ma_total": 1432.193634165995,
+      "bband_upper": 92.85374697824334,
+      "bband_lower": 49.4508460918614,
+      "addedDate": "5/5",
+      "ma": 71.61
+    },
+    {
+      "code": "6706",
+      "name": "惠特",
+      "sector": "電子上游-LED照...",
+      "side": "bull",
+      "prices": {
+        "4/30": 151.5
+      },
+      "ma_total": 2785.5549542048293,
+      "bband_upper": 169.82722731057453,
+      "bband_lower": 107.44171523730225,
+      "addedDate": "5/5",
+      "ma": 139.28
+    },
+    {
+      "code": "3265",
+      "name": "台星科",
+      "sector": "電子上游-IC-封測",
+      "side": "bull",
+      "prices": {
+        "4/30": 168.0
+      },
+      "ma_total": 3337.529837251356,
+      "bband_upper": 189.33770343580468,
+      "bband_lower": 144.29701627486438,
+      "addedDate": "5/5",
+      "ma": 166.88
+    },
+    {
+      "code": "6147",
+      "name": "頎邦",
+      "sector": "電子上游-IC-封測",
+      "side": "bull",
+      "prices": {
+        "4/30": 163.0
+      },
+      "ma_total": 2534.687587168759,
+      "bband_upper": 207.21059972106002,
+      "bband_lower": 42.440725244072524,
+      "addedDate": "5/5",
+      "ma": 126.73
+    },
+    {
+      "code": "5443",
+      "name": "均豪",
+      "sector": "電子上游-IC-半導...",
+      "side": "bull",
+      "prices": {
+        "4/30": 129.5
+      },
+      "ma_total": 2326.724558452481,
+      "bband_upper": 135.3027754415475,
+      "bband_lower": 95.98402018502942,
+      "addedDate": "5/5",
+      "ma": 116.34
+    },
+    {
+      "code": "2342",
+      "name": "茂矽",
+      "sector": "電子上游-IC-代工",
+      "side": "bull",
+      "prices": {
+        "4/30": 33.6
+      },
+      "ma_total": 621.8504288164667,
+      "bband_upper": 35.295025728988,
+      "bband_lower": 26.626072041166385,
+      "addedDate": "5/5",
+      "ma": 31.09
+    },
+    {
+      "code": "1597",
+      "name": "直得",
+      "sector": "傳產-電機",
+      "side": "bull",
+      "prices": {
+        "4/30": 143.5
+      },
+      "ma_total": 2291.7412060301504,
+      "bband_upper": 162.24874371859298,
+      "bband_lower": 63.88190954773869,
+      "addedDate": "5/5",
+      "ma": 114.59
+    },
+    {
+      "code": "4571",
+      "name": "鈞興-KY",
+      "sector": "傳產-電機",
+      "side": "bull",
+      "prices": {
+        "4/30": 178.5
+      },
+      "ma_total": 3275.9789915966394,
+      "bband_upper": 189.109243697479,
+      "bband_lower": 136.94117647058823,
+      "addedDate": "5/5",
+      "ma": 163.8
+    }
+  ],
+  "lastUpdate": "5/5"
 }
