@@ -88,41 +88,6 @@ def fetch_all_prices(stocks):
             results[code] = (price, trade_date)
     return results
 
-def fetch_chip_data(code):
-    """從玩股網抓三大法人近三日買賣超"""
-    try:
-        url = f"https://www.wantgoo.com/stock/{code}/institutional-investors/trend"
-        req = urllib.request.Request(url, headers={"User-Agent":"Mozilla/5.0","Accept":"text/html"})
-        with urllib.request.urlopen(req, timeout=10) as r:
-            html = r.read().decode("utf-8", errors="ignore")
-        rows = re.findall(r'<tr[^>]*>(.*?)</tr>', html, re.DOTALL)
-        results = []
-        for row in rows:
-            cells = re.findall(r'<td[^>]*>(.*?)</td>', row, re.DOTALL)
-            if len(cells) < 6: continue
-            date_text = re.sub(r'<[^>]+>', '', cells[0]).strip()
-            if not re.match(r'^\d{4}/\d{2}/\d{2}$', date_text): continue
-            total_text = re.sub(r'<[^>]+>', '', cells[5]).strip().replace(',', '').replace('\xa0', '')
-            try:
-                total = int(total_text)
-                results.append({"date": date_text, "total": total})
-            except: continue
-            if len(results) >= 3: break
-        return results
-    except Exception as e:
-        return []
-
-def fetch_all_chips(stocks):
-    """並行抓取所有股票籌碼"""
-    results = {}
-    def fetch_one(s):
-        return s["code"], fetch_chip_data(s["code"])
-    with ThreadPoolExecutor(max_workers=3) as executor:
-        futures = {executor.submit(fetch_one, s): s for s in stocks}
-        for future in as_completed(futures):
-            code, chip = future.result()
-            results[code] = chip
-    return results
 
 def draw_chart(s):
     """用matplotlib畫折線圖+布林通道"""
@@ -356,18 +321,6 @@ def main():
             print(f"  ⚠️ {s['code']} {s.get('name','')} 無法取得")
     print(f"\n⏱️ 收盤價更新完成，耗時 {time.time()-t0:.1f} 秒，成功 {success}/{len(stocks)} 檔")
 
-    print(f"\n📊 抓取三大法人籌碼...")
-    chip_results = fetch_all_chips(stocks)
-    chip_success = 0
-    for s in stocks:
-        chip = chip_results.get(s["code"], [])
-        if chip:
-            s["chip"] = chip
-            chip_success += 1
-            print(f"  ✅ {s['code']} {s.get('name','')} {chip[0]['date']} {chip[0]['total']:+,}張")
-        else:
-            print(f"  ⚠️ {s['code']} {s.get('name','')} 籌碼抓取失敗")
-    print(f"📊 籌碼完成：{chip_success}/{len(stocks)} 檔")
 
     print(f"\n📊 開始畫布林通道圖...")
     chart_success = 0
