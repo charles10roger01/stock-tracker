@@ -107,8 +107,8 @@
         "5/5": 108.0
       },
       "ma_total": 1386.8100001794687,
-      "bband_upper": 120.31,
-      "bband_lower": 18.38,
+      "bband_upper": 131.05,
+      "bband_lower": 7.63,
       "addedDate": "5/3",
       "ma": 69.34
     },
@@ -171,8 +171,8 @@
         "5/5": 80.3
       },
       "ma_total": 1143.413397601476,
-      "bband_upper": 93.76,
-      "bband_lower": 20.58,
+      "bband_upper": 96.62,
+      "bband_lower": 17.72,
       "addedDate": "5/3",
       "ma": 57.17
     },
@@ -187,8 +187,8 @@
         "5/5": 84.7
       },
       "ma_total": 1132.0949403202328,
-      "bband_upper": 97.93,
-      "bband_lower": 15.28,
+      "bband_upper": 105.28,
+      "bband_lower": 7.92,
       "addedDate": "5/3",
       "ma": 56.6
     },
@@ -283,8 +283,8 @@
         "5/5": 173.0
       },
       "ma_total": 2329.072155797102,
-      "bband_upper": 162.84,
-      "bband_lower": 64.11,
+      "bband_upper": 188.65,
+      "bband_lower": 44.25,
       "addedDate": "5/3",
       "ma": 116.45
     },
@@ -314,8 +314,8 @@
         "5/5": 101.0
       },
       "ma_total": 1678.5065584970112,
-      "bband_upper": 96.31,
-      "bband_lower": 69.74,
+      "bband_upper": 99.87,
+      "bband_lower": 67.98,
       "addedDate": "5/4",
       "ma": 83.93
     },
@@ -374,8 +374,8 @@
         "5/5": 135.0
       },
       "ma_total": 2337.6290925266903,
-      "bband_upper": 135.0,
-      "bband_lower": 98.76,
+      "bband_upper": 136.17,
+      "bband_lower": 97.6,
       "addedDate": "5/4",
       "ma": 116.88
     },
@@ -401,13 +401,14 @@
       "side": "bull",
       "prices": {
         "5/4": 155.5,
-        "5/5": 163.0
+        "5/5": 163.0,
+        "5/6": 172.5
       },
-      "ma_total": 2574.2532258064516,
+      "ma_total": 2618.040564516129,
       "bband_upper": 161.81,
       "bband_lower": 92.01,
       "addedDate": "5/4",
-      "ma": 128.71
+      "ma": 130.9
     },
     {
       "code": "5464",
@@ -419,8 +420,8 @@
         "5/5": 39.45
       },
       "ma_total": 627.8706544054747,
-      "bband_upper": 37.67,
-      "bband_lower": 25.11,
+      "bband_upper": 40.5,
+      "bband_lower": 22.29,
       "addedDate": "5/4",
       "ma": 31.39
     },
@@ -537,8 +538,8 @@
         "5/5": 116.0
       },
       "ma_total": 1969.658536585366,
-      "bband_upper": 119.16,
-      "bband_lower": 77.8,
+      "bband_upper": 120.64,
+      "bband_lower": 76.32,
       "addedDate": "5/5",
       "ma": 98.48
     },
@@ -607,8 +608,8 @@
         "5/5": 70.8
       },
       "ma_total": 1229.4563307493538,
-      "bband_upper": 73.15,
-      "bband_lower": 49.79,
+      "bband_upper": 75.0,
+      "bband_lower": 47.95,
       "addedDate": "5/5",
       "ma": 61.47
     },
@@ -663,11 +664,165 @@
         "5/5": 84.1
       },
       "ma_total": 1385.321498371335,
-      "bband_upper": 85.89,
-      "bband_lower": 52.64,
+      "bband_upper": 88.31,
+      "bband_lower": 50.22,
       "addedDate": "5/5",
       "ma": 69.27
+    },
+    {
+      "code": "2301",
+      "name": "光寶科",
+      "sector": "電子中游-電源供...",
+      "side": "bull",
+      "prices": {
+        "5/5": 171.0
+      },
+      "ma_total": 3149.813559322034,
+      "bband_upper": 173.2415254237288,
+      "bband_lower": 140.3177966101695,
+      "addedDate": "5/7",
+      "ma": 157.49
+    },
+    {
+      "code": "8215",
+      "name": "明基材",
+      "sector": "電子中游-LCD-零...",
+      "side": "bull",
+      "prices": {
+        "5/5": 28.4
+      },
+      "ma_total": 495.17165354330706,
+      "bband_upper": 28.006299212598428,
+      "bband_lower": 21.12755905511811,
+      "addedDate": "5/7",
+      "ma": 24.76
+    },
+    {
+      "code": "6173",
+      "name": "信昌電",
+      "sector": "電子上游-被動元件",
+      "side": "bull",
+      "prices": {
+        "5/5": 92.2
+      },
+      "ma_total": 1241.3017964071857,
+      "bband_upper": 81.04191616766468,
+      "bband_lower": 39.91616766467065,
+      "addedDate": "5/7",
+      "ma": 62.07
+    },
+    {
+      "code": "3354",
+      "name": "律勝",
+      "sector": "電子上游-PCB-製造",
+      "side": "bull",
+      "prices": {
+        "5/5": 28.85
+      },
+      "ma_total": 453.95791366906474,
+      "bband_upper": 25.506474820143886,
+      "bband_lower": 19.241726618705034,
+      "addedDate": "5/7",
+      "ma": 22.7
+    },
+    {
+      "code": "8227",
+      "name": "巨有科技",
+      "sector": "電子上游-IP/ASIC",
+      "side": "bull",
+      "prices": {
+        "5/5": 173.5
+      },
+      "ma_total": 3265.1666666666665,
+      "bband_upper": 218.04385964912282,
+      "bband_lower": 107.39473684210525,
+      "addedDate": "5/7",
+      "ma": 163.26
+    },
+    {
+      "code": "2344",
+      "name": "華邦電",
+      "sector": "電子上游-IC-製造",
+      "side": "bull",
+      "prices": {
+        "5/5": 98.8
+      },
+      "ma_total": 1290.4184971098266,
+      "bband_upper": 69.92919075144509,
+      "bband_lower": 55.50433526011561,
+      "addedDate": "5/7",
+      "ma": 64.52
+    },
+    {
+      "code": "3028",
+      "name": "增你強",
+      "sector": "電子上游-IC-通路",
+      "side": "bull",
+      "prices": {
+        "5/5": 69.6
+      },
+      "ma_total": 895.4522727272728,
+      "bband_upper": 51.50710227272728,
+      "bband_lower": 35.42471590909091,
+      "addedDate": "5/7",
+      "ma": 44.77
+    },
+    {
+      "code": "3033",
+      "name": "威健",
+      "sector": "電子上游-IC-通路",
+      "side": "bull",
+      "prices": {
+        "5/5": 38.55
+      },
+      "ma_total": 688.2274193548386,
+      "bband_upper": 38.80967741935484,
+      "bband_lower": 29.57741935483871,
+      "addedDate": "5/7",
+      "ma": 34.41
+    },
+    {
+      "code": "2303",
+      "name": "聯電",
+      "sector": "電子上游-IC-代工",
+      "side": "bull",
+      "prices": {
+        "5/5": 83.1
+      },
+      "ma_total": 1142.0024390243902,
+      "bband_upper": 73.5658536585366,
+      "bband_lower": 37.89756097560976,
+      "addedDate": "5/7",
+      "ma": 57.1
+    },
+    {
+      "code": "5347",
+      "name": "世界",
+      "sector": "電子上游-IC-代工",
+      "side": "bull",
+      "prices": {
+        "5/5": 154.0
+      },
+      "ma_total": 2323.5945945945946,
+      "bband_upper": 134.74324324324323,
+      "bband_lower": 93.63513513513514,
+      "addedDate": "5/7",
+      "ma": 116.18
+    },
+    {
+      "code": "8374",
+      "name": "羅昇",
+      "sector": "傳產-電機",
+      "side": "bull",
+      "prices": {
+        "5/5": 90.0
+      },
+      "ma_total": 1819.0,
+      "bband_upper": 106.925,
+      "bband_lower": 75.075,
+      "addedDate": "5/7",
+      "ma": 90.95
     }
   ],
-  "lastUpdate": "5/5"
+  "lastUpdate": "5/7"
 }
