@@ -115,8 +115,8 @@
         "5/7": 118.5
       },
       "ma_total": 1478.8710251619707,
-      "bband_upper": 135.32,
-      "bband_lower": 7.88,
+      "bband_upper": 149.74,
+      "bband_lower": -1.85,
       "addedDate": "5/3",
       "ma": 73.94
     },
@@ -287,8 +287,8 @@
         "5/7": 45.95
       },
       "ma_total": 643.5486784153006,
-      "bband_upper": 35.36,
-      "bband_lower": 26.68,
+      "bband_upper": 43.92,
+      "bband_lower": 20.43,
       "addedDate": "5/3",
       "ma": 32.18
     },
@@ -305,8 +305,8 @@
         "5/7": 180.5
       },
       "ma_total": 2451.5876206068842,
-      "bband_upper": 193.64,
-      "bband_lower": 45.42,
+      "bband_upper": 205.93,
+      "bband_lower": 39.23,
       "addedDate": "5/3",
       "ma": 122.58
     },
@@ -420,8 +420,8 @@
         "5/7": 32.85
       },
       "ma_total": 546.0949256329114,
-      "bband_upper": 32.17,
-      "bband_lower": 21.23,
+      "bband_upper": 33.72,
+      "bband_lower": 20.89,
       "addedDate": "5/4",
       "ma": 27.3
     },
@@ -453,8 +453,8 @@
         "5/7": 47.65
       },
       "ma_total": 655.485765600941,
-      "bband_upper": 41.27,
-      "bband_lower": 22.71,
+      "bband_upper": 46.54,
+      "bband_lower": 19.01,
       "addedDate": "5/4",
       "ma": 32.77
     },
@@ -610,8 +610,8 @@
         "5/7": 55.6
       },
       "ma_total": 803.1373397435899,
-      "bband_upper": 50.16,
-      "bband_lower": 28.52,
+      "bband_upper": 54.61,
+      "bband_lower": 25.7,
       "addedDate": "5/5",
       "ma": 40.16
     },
@@ -656,8 +656,8 @@
         "5/7": 85.0
       },
       "ma_total": 1268.0193385012917,
-      "bband_upper": 75.96,
-      "bband_lower": 48.57,
+      "bband_upper": 81.79,
+      "bband_lower": 45.01,
       "addedDate": "5/5",
       "ma": 63.4
     },
@@ -701,8 +701,8 @@
         "5/7": 109.5
       },
       "ma_total": 1828.3693032427695,
-      "bband_upper": 101.78,
-      "bband_lower": 79.16,
+      "bband_upper": 106.05,
+      "bband_lower": 76.79,
       "addedDate": "5/5",
       "ma": 91.42
     },
@@ -717,8 +717,8 @@
         "5/7": 98.1
       },
       "ma_total": 1433.0926522801299,
-      "bband_upper": 89.59,
-      "bband_lower": 50.94,
+      "bband_upper": 96.73,
+      "bband_lower": 46.58,
       "addedDate": "5/5",
       "ma": 71.65
     },
@@ -875,7 +875,124 @@
       "bband_upper": null,
       "bband_lower": null,
       "addedDate": "5/7"
+    },
+    {
+      "code": "2492",
+      "name": "華新科",
+      "sector": "電子上游-被動元件",
+      "side": "bull",
+      "prices": {
+        "5/7": 160
+      },
+      "ma_total": 2804.5574057843996,
+      "bband_upper": 161.26205083260297,
+      "bband_lower": 119.19368974583699,
+      "addedDate": "5/8"
+    },
+    {
+      "code": "3090",
+      "name": "日電貿",
+      "sector": "電子上游-被動元件",
+      "side": "bull",
+      "prices": {
+        "5/7": 116
+      },
+      "ma_total": 2078.853046594982,
+      "bband_upper": 115.89605734767024,
+      "bband_lower": 91.98924731182795,
+      "addedDate": "5/8"
+    },
+    {
+      "code": "3624",
+      "name": "光頡",
+      "sector": "電子上游-被動元件",
+      "side": "bull",
+      "prices": {
+        "5/7": 59.4
+      },
+      "ma_total": 1068.345323741007,
+      "bband_upper": 60.09442446043165,
+      "bband_lower": 46.74010791366906,
+      "addedDate": "5/8"
+    },
+    {
+      "code": "6834",
+      "name": "天二科技",
+      "sector": "電子上游-被動元件",
+      "side": "bull",
+      "prices": {
+        "5/7": 43.75
+      },
+      "ma_total": 747.863247863248,
+      "bband_upper": 42.62820512820514,
+      "bband_lower": 32.15811965811966,
+      "addedDate": "5/8"
+    },
+    {
+      "code": "6108",
+      "name": "競國",
+      "sector": "電子上游-PCB-製造",
+      "side": "bull",
+      "prices": {
+        "5/7": 24.2
+      },
+      "ma_total": 375.77639751552795,
+      "bband_upper": 23.486024844720497,
+      "bband_lower": 14.091614906832298,
+      "addedDate": "5/8"
+    },
+    {
+      "code": "6113",
+      "name": "亞矽",
+      "sector": "電子上游-IC-通路",
+      "side": "bull",
+      "prices": {
+        "5/7": 25.05
+      },
+      "ma_total": 455.4545454545454,
+      "bband_upper": 25.049999999999997,
+      "bband_lower": 20.495454545454542,
+      "addedDate": "5/8"
+    },
+    {
+      "code": "3141",
+      "name": "晶宏",
+      "sector": "電子上游-IC-設計",
+      "side": "bull",
+      "prices": {
+        "5/7": 56.1
+      },
+      "ma_total": 939.6984924623116,
+      "bband_upper": 56.146984924623126,
+      "bband_lower": 37.82286432160804,
+      "addedDate": "5/8"
+    },
+    {
+      "code": "3438",
+      "name": "類比科",
+      "sector": "電子上游-IC-設計",
+      "side": "bull",
+      "prices": {
+        "5/7": 68
+      },
+      "ma_total": 1037.3760488176963,
+      "bband_upper": 70.28222730739893,
+      "bband_lower": 33.45537757437071,
+      "addedDate": "5/8"
+    },
+    {
+      "code": "6261",
+      "name": "久元",
+      "sector": "電子上游-IC-封測",
+      "side": "bull",
+      "prices": {
+        "5/7": 133.5
+      },
+      "ma_total": 1858.0375782881001,
+      "bband_upper": 134.24321503131523,
+      "bband_lower": 51.56054279749477,
+      "addedDate": "5/8"
     }
   ],
-  "lastUpdate": "5/7"
+  "lastUpdate": "5/8"
 }
