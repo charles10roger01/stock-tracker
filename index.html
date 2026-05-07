@@ -192,6 +192,20 @@
   </div>
 </div>
 
+<div class="modal-bg" id="price-modal">
+  <div class="modal">
+    <h2 id="price-modal-title">補入收盤價</h2>
+    <label>日期（格式：5/6）</label>
+    <input type="text" id="price-date" placeholder="例如：5/6">
+    <label>收盤價</label>
+    <input type="number" id="price-val" placeholder="例如：113.0" step="0.01">
+    <div class="modal-footer">
+      <button class="btn" onclick="closePriceModal()">取消</button>
+      <button class="btn btn-primary" onclick="savePrice()">儲存並匯出</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const REPO = 'charles10roger01/stock-tracker';
 const DATA_URL = `https://raw.githubusercontent.com/${REPO}/main/stocks.json`;
@@ -357,8 +371,8 @@ function stockRow(s, idx, allDates, mode) {
     <td>${badge}</td>
     ${priceCells}
     <td>
-      ${mode==='bull'?`<button class="btn btn-sm" style="margin-right:4px;color:#16a34a;border-color:#86efac;" onclick="moveToBear(${idx})">→空</button>`:`<button class="btn btn-sm" style="margin-right:4px;color:#dc2626;border-color:#fca5a5;" onclick="moveToBull(${idx})">→多</button>`}
-      <button class="btn btn-sm btn-danger" onclick="removeStock(${idx})">移除</button>
+      <a class="btn btn-sm" href="https://www.wantgoo.com/stock/${s.code}/technical-chart" target="_blank">看籌碼</a>
+      <button class="btn btn-sm" style="margin-left:4px;" onclick="openPriceModal('${s.code}','${s.name||s.code}')">補價</button>
     </td>
   </tr>`;
 }
@@ -392,7 +406,7 @@ function renderGroups(mode, list, allDates) {
         ${hasReady?(mode==='bull'?'<span class="alert-tag">有股票準備進場</span>':'<span class="short-tag">有股票接近月線</span>'):hasFly?'<span class="fly-tag">族群強勢中</span>':''}
       </div>
       <div class="tbl-wrap"><table>
-        <thead><tr><th><input type="checkbox" class="head-check" style="width:14px;height:14px;cursor:pointer;" onchange="toggleAll(this.checked)"></th><th>代號</th><th>名稱</th><th>前高</th><th>距前高</th><th>月線</th><th>狀態</th>${allDates.map(d=>`<th>${d}</th>`).join('')}<th></th></tr></thead>
+        <thead><tr><th><input type="checkbox" class="head-check" style="width:14px;height:14px;cursor:pointer;" onchange="toggleAll(this.checked)"></th><th>代號</th><th>名稱</th><th>族群</th><th>前高</th><th>距前高</th><th>月線</th><th>狀態</th>${allDates.map(d=>`<th>${d}</th>`).join('')}<th></th></tr></thead>
         <tbody>${items.map(s=>stockRow(s,stocks.indexOf(s),allDates,mode)).join('')}</tbody>
       </table></div>
     </div>`;
@@ -543,6 +557,36 @@ function hidePreview() {
   clearTimeout(previewTimer);
   document.getElementById('preview-tooltip').style.display='none';
   document.getElementById('preview-iframe-container').innerHTML='';
+}
+
+
+// ===== 手動補收盤價 =====
+let priceTargetCode = null;
+
+function openPriceModal(code, name) {
+  priceTargetCode = code;
+  document.getElementById('price-modal-title').textContent = `補入收盤價 — ${name}`;
+  document.getElementById('price-date').value = '';
+  document.getElementById('price-val').value = '';
+  document.getElementById('price-modal').classList.add('open');
+}
+
+function closePriceModal() {
+  document.getElementById('price-modal').classList.remove('open');
+  priceTargetCode = null;
+}
+
+function savePrice() {
+  const date = document.getElementById('price-date').value.trim();
+  const val = parseFloat(document.getElementById('price-val').value.trim());
+  if (!date || isNaN(val)) { alert('請輸入正確的日期和價格'); return; }
+  const s = stocks.find(s => s.code === priceTargetCode);
+  if (!s) return;
+  if (!s.prices) s.prices = {};
+  s.prices[date] = val;
+  closePriceModal();
+  exportStocks();
+  render();
 }
 
 init();
