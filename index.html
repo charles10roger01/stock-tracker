@@ -89,6 +89,12 @@
   .export-bar { display:none; align-items:center; gap:8px; padding:8px 12px; background:#fffbeb; border:1px solid #fde68a; border-radius:8px; margin-bottom:12px; font-size:12px; color:#92400e; }
   .export-bar.show { display:flex; }
   input[type=checkbox].row-check { width:14px; height:14px; cursor:pointer; accent-color:#1a1a1a; }
+  .track-btn { display:inline-block; padding:2px 8px; border-radius:5px; font-size:11px; font-weight:500; cursor:pointer; border:1px solid #e5e5e5; background:#fff; }
+  .track-btn.y { background:#dcfce7; color:#15803d; border-color:#86efac; }
+  .track-btn.n { background:#fee2e2; color:#b91c1c; border-color:#fca5a5; }
+  .price-input { width:60px; padding:2px 4px; border:1px solid #d1d5db; border-radius:4px; font-size:12px; text-align:center; }
+  .export-prices-btn { position:fixed; bottom:24px; right:24px; background:#1a1a1a; color:#fff; border:none; border-radius:8px; padding:10px 20px; font-size:13px; cursor:pointer; display:none; z-index:999; box-shadow:0 4px 12px rgba(0,0,0,0.2); }
+  .export-prices-btn.show { display:block; }
 </style>
 </head>
 <body>
@@ -101,6 +107,7 @@
   </div>
 </div>
 
+<button class="export-prices-btn" id="export-prices-btn" onclick="exportStocks()">💾 匯出 stocks.json</button>
 <div class="container">
   <div class="notice" id="data-notice" style="display:none;">
     ⚠️ 找不到 stocks.json，目前顯示範例資料。請依照說明文件設定 GitHub Repository。
@@ -122,10 +129,10 @@
   <!-- 多方面板 -->
   <div id="bull-panel">
     <div class="summary-grid">
-      <div class="metric"><div class="metric-label">多方追蹤中</div><div class="metric-val" id="bull-cnt-total">0</div></div>
-      <div class="metric"><div class="metric-label">準備進場</div><div class="metric-val warn" id="bull-cnt-near">0</div></div>
-      <div class="metric"><div class="metric-label">仍在飆升</div><div class="metric-val success" id="bull-cnt-fly">0</div></div>
-      <div class="metric"><div class="metric-label">等待反彈</div><div class="metric-val info" id="bull-cnt-wait">0</div></div>
+      <div class="metric" style="cursor:pointer;" onclick="filterStatus(null)"><div class="metric-label">多方追蹤中</div><div class="metric-val" id="bull-cnt-total">0</div></div>
+      <div class="metric" style="cursor:pointer;" onclick="filterStatus('near')"><div class="metric-label">準備進場</div><div class="metric-val warn" id="bull-cnt-near">0</div></div>
+      <div class="metric" style="cursor:pointer;" onclick="filterStatus('fly')"><div class="metric-label">仍在飆升</div><div class="metric-val success" id="bull-cnt-fly">0</div></div>
+      <div class="metric" style="cursor:pointer;" onclick="filterStatus('wait')"><div class="metric-label">等待反彈</div><div class="metric-val info" id="bull-cnt-wait">0</div></div>
     </div>
     <div class="toolbar">
       <div class="view-toggle">
@@ -192,19 +199,6 @@
   </div>
 </div>
 
-<div class="modal-bg" id="price-modal">
-  <div class="modal">
-    <h2 id="price-modal-title">補入收盤價</h2>
-    <label>日期（格式：5/6）</label>
-    <input type="text" id="price-date" placeholder="例如：5/6">
-    <label>收盤價</label>
-    <input type="number" id="price-val" placeholder="例如：113.0" step="0.01">
-    <div class="modal-footer">
-      <button class="btn" onclick="closePriceModal()">取消</button>
-      <button class="btn btn-primary" onclick="savePrice()">儲存並匯出</button>
-    </div>
-  </div>
-</div>
 
 <script>
 const REPO = 'charles10roger01/stock-tracker';
@@ -216,6 +210,7 @@ let currentMode = 'bull';
 let bullView = 'all';
 let bearView = 'all';
 let addTab = 'manual';
+let activeFilter = null;
 
 // ===== 月線斜率計算 =====
 function calcMA(prices, period) {
@@ -358,12 +353,19 @@ function stockRow(s, idx, allDates, mode) {
   const st = mode==='bull'?getBullStatus(s):getBearStatus(s);
   const badge = mode==='bull'?bullBadge(st):bearBadge(st);
   const ma = s.ma ? s.ma.toFixed(2) : '-';
-  const priceCells=allDates.map(d=>{const v=s.prices?.[d];return`<td class="${v&&Number(v)===peak?'peak-val':''}">${v||'-'}</td>`;}).join('');
+  const tracking = s.tracking !== 'N' ? 'Y' : 'N';
+  const trackBtn = `<span class="track-btn ${tracking.toLowerCase()}" onclick="toggleTracking('${s.code}')">${tracking}</span>`;
+  const priceCells=allDates.map(d=>{
+    const v=s.prices?.[d];
+    if(v) return `<td class="${Number(v)===peak?'peak-val':''}">${v}</td>`;
+    return `<td><input class="price-input" type="number" step="0.01" placeholder="" onchange="updatePrice('${s.code}','${d}',this.value)" onfocus="showExportBtn()" /></td>`;
+  }).join('');
   const isChecked = checkedCodes.has(s.code);
   return `<tr>
     <td><input type="checkbox" class="row-check" data-code="${s.code}" ${isChecked?'checked':''} onchange="toggleCheck('${s.code}',this.checked)"></td>
     <td><a class="stock-link" href="#" onclick="copyCode('${s.code}');return false;">${s.code}</a></td>
     <td><a class="stock-link" href="https://www.wantgoo.com/stock/${s.code}/technical-chart" target="_blank" onmouseenter="showPreview(event,'${s.code}','${s.name||s.code}')" onmouseleave="hidePreview()" style="color:#1a1a1a;font-weight:500;">${s.name||'-'}</a></td>
+    <td>${trackBtn}</td>
     <td style="color:#888;font-size:11px;">${s.sector||'-'}</td>
     <td>${peak?peak.toFixed(2):'-'}</td>
     <td>${pct!==null?pct+'%':'-'}</td>
@@ -372,24 +374,24 @@ function stockRow(s, idx, allDates, mode) {
     ${priceCells}
     <td>
       <a class="btn btn-sm" href="https://www.wantgoo.com/stock/${s.code}/technical-chart" target="_blank">看籌碼</a>
-      <button class="btn btn-sm" style="margin-left:4px;" onclick="openPriceModal('${s.code}','${s.name||s.code}')">補價</button>
     </td>
   </tr>`;
 }
 
 function renderBullTable(bullStocks, allDates) {
   const empty = document.getElementById('bull-empty');
+  const filtered = activeFilter ? bullStocks.filter(s=>getBullStatus(s)===activeFilter) : bullStocks;
   if (!bullStocks.length) { empty.style.display='block'; document.getElementById('bull-all-head').innerHTML=''; document.getElementById('bull-all-body').innerHTML=''; return; }
   empty.style.display='none';
-  document.getElementById('bull-all-head').innerHTML=`<tr><th><input type="checkbox" class="head-check" style="width:14px;height:14px;cursor:pointer;" onchange="toggleAll(this.checked)"></th><th>代號</th><th>名稱</th><th>族群</th><th>前高</th><th>距前高</th><th>月線</th><th>狀態</th>${allDates.map(d=>`<th>${d}</th>`).join('')}<th></th></tr>`;
-  document.getElementById('bull-all-body').innerHTML=bullStocks.map((s,i)=>stockRow(s,stocks.indexOf(s),allDates,'bull')).join('');
+  document.getElementById('bull-all-head').innerHTML=`<tr><th><input type="checkbox" class="head-check" style="width:14px;height:14px;cursor:pointer;" onchange="toggleAll(this.checked)"></th><th>代號</th><th>名稱</th><th>追蹤情形</th><th>族群</th><th>前高</th><th>距前高</th><th>月線</th><th>狀態</th>${allDates.map(d=>`<th>${d}</th>`).join('')}<th></th></tr>`;
+  document.getElementById('bull-all-body').innerHTML=filtered.map((s)=>stockRow(s,stocks.indexOf(s),allDates,'bull')).join('');
 }
 
 function renderBearTable(bearStocks, allDates) {
   const empty = document.getElementById('bear-empty');
   if (!bearStocks.length) { empty.style.display='block'; document.getElementById('bear-all-head').innerHTML=''; document.getElementById('bear-all-body').innerHTML=''; return; }
   empty.style.display='none';
-  document.getElementById('bear-all-head').innerHTML=`<tr><th><input type="checkbox" class="head-check" style="width:14px;height:14px;cursor:pointer;" onchange="toggleAll(this.checked)"></th><th>代號</th><th>名稱</th><th>族群</th><th>前高</th><th>距前高</th><th>月線</th><th>狀態</th>${allDates.map(d=>`<th>${d}</th>`).join('')}<th></th></tr>`;
+  document.getElementById('bear-all-head').innerHTML=`<tr><th><input type="checkbox" class="head-check" style="width:14px;height:14px;cursor:pointer;" onchange="toggleAll(this.checked)"></th><th>代號</th><th>名稱</th><th>追蹤情形</th><th>族群</th><th>前高</th><th>距前高</th><th>月線</th><th>狀態</th>${allDates.map(d=>`<th>${d}</th>`).join('')}<th></th></tr>`;
   document.getElementById('bear-all-body').innerHTML=bearStocks.map((s,i)=>stockRow(s,stocks.indexOf(s),allDates,'bear')).join('');
 }
 
@@ -406,7 +408,7 @@ function renderGroups(mode, list, allDates) {
         ${hasReady?(mode==='bull'?'<span class="alert-tag">有股票準備進場</span>':'<span class="short-tag">有股票接近月線</span>'):hasFly?'<span class="fly-tag">族群強勢中</span>':''}
       </div>
       <div class="tbl-wrap"><table>
-        <thead><tr><th><input type="checkbox" class="head-check" style="width:14px;height:14px;cursor:pointer;" onchange="toggleAll(this.checked)"></th><th>代號</th><th>名稱</th><th>族群</th><th>前高</th><th>距前高</th><th>月線</th><th>狀態</th>${allDates.map(d=>`<th>${d}</th>`).join('')}<th></th></tr></thead>
+        <thead><tr><th><input type="checkbox" class="head-check" style="width:14px;height:14px;cursor:pointer;" onchange="toggleAll(this.checked)"></th><th>代號</th><th>名稱</th><th>追蹤情形</th><th>族群</th><th>前高</th><th>距前高</th><th>月線</th><th>狀態</th>${allDates.map(d=>`<th>${d}</th>`).join('')}<th></th></tr></thead>
         <tbody>${items.map(s=>stockRow(s,stocks.indexOf(s),allDates,mode)).join('')}</tbody>
       </table></div>
     </div>`;
@@ -530,8 +532,8 @@ function updateExportBar() {
 
 function exportCodeList() {
   const codes = checkedCodes.size > 0
-    ? [...checkedCodes]
-    : stocks.map(s => s.code);
+    ? [...checkedCodes].filter(code => { const s=stocks.find(s=>s.code===code); return !s||s.tracking!=='N'; })
+    : stocks.filter(s=>s.tracking!=='N').map(s=>s.code);
   const txt = codes.join('\n');
   const a = document.createElement('a');
   a.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(txt);
@@ -559,34 +561,42 @@ function hidePreview() {
   document.getElementById('preview-iframe-container').innerHTML='';
 }
 
-
-// ===== 手動補收盤價 =====
-let priceTargetCode = null;
-
-function openPriceModal(code, name) {
-  priceTargetCode = code;
-  document.getElementById('price-modal-title').textContent = `補入收盤價 — ${name}`;
-  document.getElementById('price-date').value = '';
-  document.getElementById('price-val').value = '';
-  document.getElementById('price-modal').classList.add('open');
-}
-
-function closePriceModal() {
-  document.getElementById('price-modal').classList.remove('open');
-  priceTargetCode = null;
-}
-
-function savePrice() {
-  const date = document.getElementById('price-date').value.trim();
-  const val = parseFloat(document.getElementById('price-val').value.trim());
-  if (!date || isNaN(val)) { alert('請輸入正確的日期和價格'); return; }
-  const s = stocks.find(s => s.code === priceTargetCode);
-  if (!s) return;
-  if (!s.prices) s.prices = {};
-  s.prices[date] = val;
-  closePriceModal();
-  exportStocks();
+// ===== 狀態篩選 =====
+function filterStatus(status) {
+  activeFilter = activeFilter === status ? null : status;
+  // 更新統計卡片的視覺提示
+  document.querySelectorAll('.summary-grid .metric').forEach(m => m.style.outline = '');
+  if (activeFilter) {
+    const map = {fly: 1, near: 1, wait: 2};
+    const cards = document.querySelectorAll('#bull-panel .summary-grid .metric');
+    const idx = ['total','near','fly','wait'].indexOf(activeFilter === null ? 'total' : activeFilter);
+    if (idx > 0) cards[idx].style.outline = '2px solid #1a1a1a';
+  }
   render();
+}
+
+// ===== 追蹤情形 =====
+function toggleTracking(code) {
+  const s = stocks.find(s=>s.code===code);
+  if (!s) return;
+  s.tracking = s.tracking === 'N' ? 'Y' : 'N';
+  localStorage.setItem(LS_KEY, JSON.stringify(stocks));
+  render();
+}
+
+// ===== 直接補價（點擊空格輸入）=====
+function updatePrice(code, date, val) {
+  const s = stocks.find(s=>s.code===code);
+  if (!s || !val) return;
+  const num = parseFloat(val);
+  if (isNaN(num)) return;
+  if (!s.prices) s.prices = {};
+  s.prices[date] = num;
+  showExportBtn();
+}
+
+function showExportBtn() {
+  document.getElementById('export-prices-btn').classList.add('show');
 }
 
 init();
