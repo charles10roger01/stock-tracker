@@ -42,7 +42,16 @@
   .btn-danger { border-color: #fca5a5; color: #dc2626; }
 
   .card { background: #fff; border-radius: 10px; border: 1px solid #e5e5e5; overflow: hidden; margin-bottom: 16px; }
-  .tbl-wrap { overflow-x: auto; }
+  .tbl-wrap { overflow-x: auto; max-height: 80vh; overflow-y: auto; }
+  .tbl-wrap table { border-collapse: separate; border-spacing: 0; }
+  .tbl-wrap th { position: sticky; top: 0; z-index: 3; background: #fafafa; }
+  .tbl-wrap td:nth-child(1), .tbl-wrap th:nth-child(1) { position: sticky; left: 0; z-index: 2; background: #fff; }
+  .tbl-wrap th:nth-child(1) { z-index: 4; background: #fafafa; }
+  .tbl-wrap td:nth-child(2), .tbl-wrap th:nth-child(2) { position: sticky; left: 30px; z-index: 2; background: #fff; }
+  .tbl-wrap th:nth-child(2) { z-index: 4; background: #fafafa; }
+  .tbl-wrap td:nth-child(3), .tbl-wrap th:nth-child(3) { position: sticky; left: 80px; z-index: 2; background: #fff; border-right: 1px solid #e5e5e5; }
+  .tbl-wrap th:nth-child(3) { z-index: 4; background: #fafafa; border-right: 1px solid #e5e5e5; }
+  tr:hover td { background: #fafafa !important; }
   table { width: 100%; border-collapse: collapse; font-size: 12px; }
   th { text-align: left; padding: 8px 10px; border-bottom: 1px solid #f0f0f0; color: #888; font-weight: 500; white-space: nowrap; background: #fafafa; }
   td { padding: 8px 10px; border-bottom: 1px solid #f5f5f5; white-space: nowrap; }
@@ -352,12 +361,26 @@ function stockRow(s, idx, allDates, mode) {
   const peak=getPeak(s),pct=getPct(s);
   const st = mode==='bull'?getBullStatus(s):getBearStatus(s);
   const badge = mode==='bull'?bullBadge(st):bearBadge(st);
-  const ma = s.ma ? s.ma.toFixed(2) : '-';
+  const ma = s.ma ? s.ma.toFixed(2) : `<input class="price-input" type="number" step="0.01" placeholder="月線%" title="輸入乖離月線%，程式自動計算月線" onchange="updateMA('${s.code}',this.value)" onfocus="showExportBtn()" style="width:70px;">`;
   const tracking = s.tracking !== 'N' ? 'Y' : 'N';
   const trackBtn = `<span class="track-btn ${tracking.toLowerCase()}" onclick="toggleTracking('${s.code}')">${tracking}</span>`;
+  // 計算需要上色的日期（從最新前高往前推連續墊高）
+  const priceEntries = allDates.filter(d=>s.prices?.[d]).map(d=>({d, v:Number(s.prices[d])}));
+  const highlightDates = new Set();
+  if(priceEntries.length) {
+    // 找最新前高那天
+    const peakIdx = priceEntries.reduce((best,cur,i)=>cur.v>=priceEntries[best].v?i:best, 0);
+    highlightDates.add(priceEntries[peakIdx].d);
+    // 從前高往前推
+    for(let i=peakIdx-1;i>=0;i--) {
+      if(priceEntries[i].v <= priceEntries[i+1].v) highlightDates.add(priceEntries[i].d);
+      else break;
+    }
+  }
   const priceCells=allDates.map(d=>{
     const v=s.prices?.[d];
-    if(v) return `<td class="${Number(v)===peak?'peak-val':''}">${v}</td>`;
+    const isHighlight = highlightDates.has(d);
+    if(v) return `<td class="${Number(v)===peak?'peak-val':''}" style="${isHighlight?'background:#fef9c3;':''}">${v}</td>`;
     return `<td><input class="price-input" type="number" step="0.01" placeholder="" onchange="updatePrice('${s.code}','${d}',this.value)" onfocus="showExportBtn()" /></td>`;
   }).join('');
   const isChecked = checkedCodes.has(s.code);
@@ -585,6 +608,25 @@ function toggleTracking(code) {
 }
 
 // ===== 直接補價（點擊空格輸入）=====
+function updateMA(code, maDeviation) {
+  const s = stocks.find(s=>s.code===code);
+  if (!s || !maDeviation) return;
+  const maDev = parseFloat(maDeviation);
+  if (isNaN(maDev)) return;
+  // 找最新收盤價
+  const entries = Object.entries(s.prices||{});
+  if (!entries.length) return;
+  function parseDKL(k){const p=k.split('/').map(Number);return p.length===3?new Date(p[0],p[1]-1,p[2]):new Date(new Date().getFullYear(),p[0]-1,p[1]);}
+  const sorted = entries.sort((a,b)=>parseDKL(a[0])-parseDKL(b[0]));
+  const latestPrice = parseFloat(sorted[sorted.length-1][1]);
+  if (isNaN(latestPrice)) return;
+  const maPrice = latestPrice / (1 + maDev/100);
+  s.ma_total = maPrice * 20;
+  s.ma = Math.round(maPrice * 100) / 100;
+  showExportBtn();
+  render();
+}
+
 function updatePrice(code, date, val) {
   const s = stocks.find(s=>s.code===code);
   if (!s || !val) return;
@@ -598,6 +640,17 @@ function updatePrice(code, date, val) {
 function showExportBtn() {
   document.getElementById('export-prices-btn').classList.add('show');
 }
+
+// ===== Shift+滾輪橫向滾動 =====
+document.addEventListener('wheel', function(e) {
+  if (e.shiftKey) {
+    const wrap = e.target.closest('.tbl-wrap');
+    if (wrap) {
+      e.preventDefault();
+      wrap.scrollLeft += e.deltaY;
+    }
+  }
+}, { passive: false });
 
 init();
 </script>
