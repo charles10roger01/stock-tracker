@@ -42,6 +42,7 @@
   .btn-danger { border-color: #fca5a5; color: #dc2626; }
 
   .card { background: #fff; border-radius: 10px; border: 1px solid #e5e5e5; overflow: hidden; margin-bottom: 16px; }
+  .card-table { overflow: visible; }
   .tbl-wrap { overflow-x: auto; max-height: 80vh; overflow-y: auto; }
   .tbl-wrap table { border-collapse: separate; border-spacing: 0; }
   .tbl-wrap th { position: sticky; top: 0; z-index: 3; background: #fafafa; }
@@ -156,7 +157,7 @@
         <input type="file" id="import-input" accept=".json" style="display:none" onchange="importStocks(this)">
       </div>
     </div>
-    <div id="bull-all-view"><div class="card"><div class="tbl-wrap"><table><thead id="bull-all-head"></thead><tbody id="bull-all-body"></tbody></table></div><div class="empty" id="bull-empty" style="display:none;">尚無多方追蹤股票</div></div></div>
+    <div id="bull-all-view"><div class="card card-table"><div class="tbl-wrap"><table><thead id="bull-all-head"></thead><tbody id="bull-all-body"></tbody></table></div><div class="empty" id="bull-empty" style="display:none;">尚無多方追蹤股票</div></div></div>
     <div id="bull-group-view" style="display:none;"></div>
   </div>
 
@@ -174,7 +175,7 @@
         <button class="view-btn" onclick="setView('bear','group')">依族群</button>
       </div>
     </div>
-    <div id="bear-all-view"><div class="card"><div class="tbl-wrap"><table><thead id="bear-all-head"></thead><tbody id="bear-all-body"></tbody></table></div><div class="empty" id="bear-empty" style="display:none;">尚無空方追蹤股票（月線斜率轉負時自動移入）</div></div></div>
+    <div id="bear-all-view"><div class="card card-table"><div class="tbl-wrap"><table><thead id="bear-all-head"></thead><tbody id="bear-all-body"></tbody></table></div><div class="empty" id="bear-empty" style="display:none;">尚無空方追蹤股票（月線斜率轉負時自動移入）</div></div></div>
     <div id="bear-group-view" style="display:none;"></div>
   </div>
 </div>
