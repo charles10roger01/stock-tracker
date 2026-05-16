@@ -645,6 +645,12 @@ function updatePrice(code, date, val) {
   if (isNaN(num)) return;
   if (!s.prices) s.prices = {};
   s.prices[date] = num;
+  // 重新按日期排序
+  const sorted = Object.entries(s.prices).sort((a,b)=>{
+    const [am,ad]=a[0].split('/').map(Number),[bm,bd]=b[0].split('/').map(Number);
+    return am!==bm?am-bm:ad-bd;
+  });
+  s.prices = Object.fromEntries(sorted);
   showExportBtn();
 }
 
