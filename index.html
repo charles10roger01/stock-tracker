@@ -105,6 +105,10 @@
   .price-input { width:60px; padding:2px 4px; border:1px solid #d1d5db; border-radius:4px; font-size:12px; text-align:center; }
   .export-prices-btn { position:fixed; bottom:24px; right:24px; background:#1a1a1a; color:#fff; border:none; border-radius:8px; padding:10px 20px; font-size:13px; cursor:pointer; display:none; z-index:999; box-shadow:0 4px 12px rgba(0,0,0,0.2); }
   .export-prices-btn.show { display:block; }
+  /* 桌機：隱藏5天以前的欄位 */
+  @media (min-width: 601px) { .date-col-old { display: none; } }
+  /* 手機：隱藏3天以前的欄位 */
+  @media (max-width: 600px) { .date-col-old { display: none; } .date-col-mid { display: none; } }
 </style>
 </head>
 <body>
@@ -381,8 +385,8 @@ function stockRow(s, idx, allDates, mode) {
   const priceCells=allDates.map(d=>{
     const v=s.prices?.[d];
     const isHighlight = highlightDates.has(d);
-    if(v) return `<td class="price-cell ${Number(v)===peak?'peak-val':''}" style="${isHighlight?'background:#fef9c3;':''}">${v}</td>`;
-    return `<td class="price-cell"><input class="price-input" type="number" step="0.01" placeholder="" onchange="updatePrice('${s.code}','${d}',this.value)" onfocus="showExportBtn()" /></td>`;
+    if(v) return `<td class="price-cell ${Number(v)===peak?'peak-val':''} ${(()=>{const fromEnd=allDates.length-1-allDates.indexOf(d);return fromEnd>=5?'date-col-old':fromEnd>=3?'date-col-mid':'';})()}" style="${isHighlight?'background:#fef9c3;':''}">${v}</td>`;
+    return `<td class="price-cell ${(()=>{const fromEnd=allDates.length-1-allDates.indexOf(d);return fromEnd>=5?'date-col-old':fromEnd>=3?'date-col-mid':'';})()}"><input class="price-input" type="number" step="0.01" placeholder="" onchange="updatePrice('${s.code}','${d}',this.value)" onfocus="showExportBtn()" /></td>`;
   }).join('');
   const isChecked = checkedCodes.has(s.code);
   return `<tr>
@@ -407,7 +411,7 @@ function renderBullTable(bullStocks, allDates) {
   const filtered = activeFilter ? bullStocks.filter(s=>getBullStatus(s)===activeFilter) : bullStocks;
   if (!bullStocks.length) { empty.style.display='block'; document.getElementById('bull-all-head').innerHTML=''; document.getElementById('bull-all-body').innerHTML=''; return; }
   empty.style.display='none';
-  document.getElementById('bull-all-head').innerHTML=`<tr><th><input type="checkbox" class="head-check" style="width:14px;height:14px;cursor:pointer;" onchange="toggleAll(this.checked)"></th><th>代號</th><th>名稱</th><th>追蹤情形</th><th>族群</th><th>前高</th><th>距前高</th><th>月線</th><th>狀態</th>${allDates.map(d=>`<th>${d}</th>`).join('')}<th></th></tr>`;
+  document.getElementById('bull-all-head').innerHTML=`<tr><th><input type="checkbox" class="head-check" style="width:14px;height:14px;cursor:pointer;" onchange="toggleAll(this.checked)"></th><th>代號</th><th>名稱</th><th>追蹤情形</th><th>族群</th><th>前高</th><th>距前高</th><th>月線</th><th>狀態</th>${allDates.map((d,i)=>{const fromEnd=allDates.length-1-i;const cls=fromEnd>=5?'date-col-old':fromEnd>=3?'date-col-mid':'';return`<th class="${cls}">${d}</th>`;}).join('')}<th></th></tr>`;
   document.getElementById('bull-all-body').innerHTML=filtered.map((s)=>stockRow(s,stocks.indexOf(s),allDates,'bull')).join('');
 }
 
