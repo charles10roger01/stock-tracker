@@ -42,7 +42,7 @@
   .btn-danger { border-color: #fca5a5; color: #dc2626; }
 
   .card { background: #fff; border-radius: 10px; border: 1px solid #e5e5e5; overflow: hidden; margin-bottom: 16px; }
-  .card-table { overflow: visible; }
+  .card-table { overflow-x: auto; overflow-y: visible; }
   .tbl-wrap { overflow-x: auto; max-height: 80vh; overflow-y: auto; }
   .tbl-wrap table { border-collapse: separate; border-spacing: 0; }
   .tbl-wrap th { position: sticky; top: 0; z-index: 3; background: #fafafa; }
@@ -103,7 +103,7 @@
   .track-btn { display:inline-block; padding:2px 8px; border-radius:5px; font-size:11px; font-weight:500; cursor:pointer; border:1px solid #e5e5e5; background:#fff; }
   .track-btn.y { background:#dcfce7; color:#15803d; border-color:#86efac; }
   .track-btn.n { background:#fee2e2; color:#b91c1c; border-color:#fca5a5; }
-  .price-input { width:60px; padding:2px 4px; border:1px solid #d1d5db; border-radius:4px; font-size:12px; text-align:center; }
+  .price-input { width:100%; padding:2px 4px; border:1px solid #d1d5db; border-radius:4px; font-size:12px; text-align:center; box-sizing:border-box; }
   .export-prices-btn { position:fixed; bottom:24px; right:24px; background:#1a1a1a; color:#fff; border:none; border-radius:8px; padding:10px 20px; font-size:13px; cursor:pointer; display:none; z-index:999; box-shadow:0 4px 12px rgba(0,0,0,0.2); }
   .export-prices-btn.show { display:block; }
 
