@@ -105,10 +105,7 @@
   .price-input { width:60px; padding:2px 4px; border:1px solid #d1d5db; border-radius:4px; font-size:12px; text-align:center; }
   .export-prices-btn { position:fixed; bottom:24px; right:24px; background:#1a1a1a; color:#fff; border:none; border-radius:8px; padding:10px 20px; font-size:13px; cursor:pointer; display:none; z-index:999; box-shadow:0 4px 12px rgba(0,0,0,0.2); }
   .export-prices-btn.show { display:block; }
-  /* 桌機：隱藏5天以前的欄位 */
-  @media (min-width: 601px) { .date-col-old { display: none; } }
-  /* 手機：隱藏3天以前的欄位 */
-  @media (max-width: 600px) { .date-col-old { display: none; } .date-col-mid { display: none; } }
+
 </style>
 </head>
 <body>
@@ -360,6 +357,12 @@ function render() {
   renderBearTable(bearStocks, allDates);
   if (bullView==='group') renderGroups('bull', bullStocks, allDates);
   if (bearView==='group') renderGroups('bear', bearStocks, allDates);
+  // 自動捲到最右邊
+  setTimeout(() => {
+    document.querySelectorAll('.tbl-wrap').forEach(wrap => {
+      wrap.scrollLeft = wrap.scrollWidth;
+    });
+  }, 50);
 }
 
 function stockRow(s, idx, allDates, mode) {
