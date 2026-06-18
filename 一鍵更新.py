@@ -30,6 +30,72 @@ def today():
     d = datetime.now()
     return f"{d.month}/{d.day}"
 
+def format_full_date(d):
+    return f"{d.year}/{d.month}/{d.day}"
+
+def format_short_date(d):
+    return f"{d.month}/{d.day}"
+
+def parse_date_key(s):
+    parts = [int(p) for p in s.split('/')]
+    if len(parts) == 3:
+        return datetime(parts[0], parts[1], parts[2])
+    if len(parts) == 2:
+        return datetime(datetime.now().year, parts[0], parts[1])
+    raise ValueError(f"Bad date format: {s}")
+
+def get_screenshot_date(image_path):
+    name = os.path.basename(image_path)
+    patterns = [
+        r'(\d{4})[-_/\.](\d{1,2})[-_/\.](\d{1,2})',
+        r'(?<!\d)(\d{1,2})[-_/\.](\d{1,2})(?!\d)',
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, name)
+        if not match:
+            continue
+        parts = [int(p) for p in match.groups()]
+        if len(parts) == 3:
+            return datetime(parts[0], parts[1], parts[2])
+        return datetime(datetime.now().year, parts[0], parts[1])
+    raise ValueError(f"截圖檔名找不到日期：{name}")
+
+def valid_price(price):
+    try:
+        return price is not None and float(price) > 0
+    except (TypeError, ValueError):
+        return False
+
+def init_ma_and_bands(stock, price, ma_dev, bandwidth):
+    if not valid_price(price) or ma_dev is None:
+        return
+    ma_price = float(price) / (1 + float(ma_dev) / 100)
+    stock["ma_total"] = ma_price * 20
+    stock["ma"] = round(ma_price, 2)
+    if bandwidth is not None:
+        stock["bband_upper"] = round(ma_price * (1 + float(bandwidth) / 200), 2)
+        stock["bband_lower"] = round(ma_price * (1 - float(bandwidth) / 200), 2)
+
+def add_price(stock, date_key, price, roll_ma=True):
+    if not valid_price(price):
+        return False
+    if "prices" not in stock:
+        stock["prices"] = {}
+    if date_key in stock["prices"]:
+        return False
+    stock["prices"][date_key] = round(float(price), 2)
+    if roll_ma and stock.get("ma_total") is not None:
+        old_ma = stock["ma_total"] / 20
+        stock["ma_total"] = stock["ma_total"] - old_ma + float(price)
+        stock["ma"] = round(stock["ma_total"] / 20, 2)
+    return True
+
+def latest_price_date(stock):
+    prices = stock.get("prices", {})
+    if not prices:
+        return None
+    return max((parse_date_key(k) for k in prices.keys()), default=None)
+
 def get_latest_screenshot():
     files = []
     for p in ["*.jpg","*.jpeg","*.png","*.JPG","*.PNG"]:
@@ -40,21 +106,46 @@ def read_screenshot_with_claude(image_path, api_key):
     with open(image_path, "rb") as f: image_data = base64.b64encode(f.read()).decode("utf-8")
     ext = os.path.splitext(image_path)[1].lower()
     mime = "image/jpeg" if ext in [".jpg",".jpeg"] else "image/png"
-    payload = json.dumps({"model":"claude-sonnet-4-6","max_tokens":2000,"messages":[{"role":"user","content":[
+    prompt = (
+        "This is a Taiwan stock screener screenshot. The columns from left to right are: "
+        "code, name, detailed industry, day-trade flag, traded/close price, change %, volume, blank column, rank, "
+        "consecutive count, consecutive volume, volume ratio, monthly MA slope, main1, main5, main10, "
+        "bandwidth, deviation from yearly MA %, dividend yield %, deviation from monthly MA %. "
+        "Read each stock row and return: code, name, detailed industry as sector, traded/close price as price, "
+        "bandwidth, and deviation from monthly MA % as ma_deviation. "
+        "The monthly MA deviation is the rightmost column, immediately after dividend yield %. "
+        "Do not confuse it with deviation from yearly MA %. "
+        "Return pure JSON only, in this exact shape: "
+        "{\"stocks\":[{\"code\":\"2417\",\"name\":\"Yuan High-Tech\",\"sector\":\"Electronics-PC interface card\","
+        "\"price\":47.15,\"ma_deviation\":17.0,\"bandwidth\":32.0}]}. "
+        "Use null only when a value is truly unreadable."
+    )
+    payload = json.dumps({"model":"claude-sonnet-4-6","max_tokens":4000,"messages":[{"role":"user","content":[
         {"type":"image","source":{"type":"base64","media_type":mime,"data":image_data}},
-        {"type":"text","text":"這是台股籌碼K線篩選清單截圖。請先看截圖最上方的欄位標題，再根據標題找到對應的數值，讀取每一檔股票的：代號、名稱、細產業分類、成交（收盤價）、帶寬、乖離月線%。注意：乖離月線%和乖離年線%是不同欄位，請確認讀取的是月線而非年線。只回傳純JSON，格式：{\"stocks\":[{\"code\":\"2417\",\"name\":\"圓剛\",\"sector\":\"電子中游-PC介面卡\",\"price\":47.15,\"ma_deviation\":17.0,\"bandwidth\":32.0}]}。看不清楚的欄位填null。"}
+        {"type":"text","text":prompt}
     ]}]}).encode("utf-8")
     req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=payload,
         headers={"Content-Type":"application/json","x-api-key":api_key,"anthropic-version":"2023-06-01"})
     with urllib.request.urlopen(req, timeout=30) as r: data = json.loads(r.read())
     text = data["content"][0]["text"]
     match = re.search(r'\{[\s\S]*\}', text)
-    return json.loads(match.group()) if match else None
+    result = json.loads(match.group()) if match else None
+    if result and any(s.get("ma_deviation") is None for s in result.get("stocks", [])):
+        print("  Warning: some monthly MA deviations were missing; retrying once...")
+        req2 = urllib.request.Request("https://api.anthropic.com/v1/messages", data=payload,
+            headers={"Content-Type":"application/json","x-api-key":api_key,"anthropic-version":"2023-06-01"})
+        with urllib.request.urlopen(req2, timeout=30) as r2: data2 = json.loads(r2.read())
+        text2 = data2["content"][0]["text"]
+        match2 = re.search(r'\{[\s\S]*\}', text2)
+        result2 = json.loads(match2.group()) if match2 else None
+        if result2:
+            result = result2
+    return result
 
 _tpex_cache = {}
 
-def fetch_closing_price(code):
-    """用Yahoo Finance抓最近收盤價，自動判斷上市(.TW)或上櫃(.TWO)"""
+def fetch_closing_prices(code):
+    """?Yahoo Finance???5???????????? {date_key: price}?"""
     import datetime as dt
     for suffix in ['.TW', '.TWO']:
         try:
@@ -64,30 +155,40 @@ def fetch_closing_price(code):
                 data = json.loads(r.read())
             result = data.get("chart",{}).get("result",[])
             if not result: continue
+            meta = result[0].get("meta", {})
             timestamps = result[0].get("timestamp",[])
             closes = result[0].get("indicators",{}).get("quote",[{}])[0].get("close",[])
             if not timestamps or not closes: continue
-            for ts, price in zip(reversed(timestamps), reversed(closes)):
-                if price is not None:
-                    trade_date = dt.datetime.fromtimestamp(ts)
-                    return round(float(price), 2), trade_date
-        except: continue
-    return None, None
+            result_dict = {}
+            for ts, price in zip(timestamps, closes):
+                if price is not None and float(price) > 0:
+                    d = dt.datetime.fromtimestamp(ts)
+                    result_dict[format_short_date(d)] = round(float(price), 2)
+            if closes[-1] is None:
+                regular_price = meta.get("regularMarketPrice")
+                regular_time = meta.get("regularMarketTime")
+                if regular_price and regular_time and float(regular_price) > 0:
+                    d = dt.datetime.fromtimestamp(regular_time)
+                    result_dict[format_short_date(d)] = round(float(regular_price), 2)
+            if result_dict:
+                return result_dict
+        except Exception as e:
+            print(f"    Warning: failed to fetch {code}{suffix}: {e}")
+            continue
+    return {}
 
 def fetch_all_prices(stocks):
-    """並行抓取所有股票收盤價"""
+    """??????????????"""
     results = {}
     def fetch_one(s):
-        price, trade_date = fetch_closing_price(s["code"])
-        return s["code"], price, trade_date
+        return s["code"], fetch_closing_prices(s["code"])
 
     with ThreadPoolExecutor(max_workers=3) as executor:
         futures = {executor.submit(fetch_one, s): s for s in stocks}
         for future in as_completed(futures):
-            code, price, trade_date = future.result()
-            results[code] = (price, trade_date)
+            code, price_dict = future.result()
+            results[code] = price_dict
     return results
-
 
 def draw_chart(s):
     """用matplotlib畫折線圖+布林通道"""
@@ -252,74 +353,134 @@ def main():
     if not os.path.exists(SCREENSHOT_DIR):
         os.makedirs(SCREENSHOT_DIR)
 
+    ai_rows_by_code = {}
+    new_codes = set()
+    screenshot_dt = None
+    screenshot_short = None
+    screenshot_full = None
+
     latest = get_latest_screenshot()
     if latest:
-        print(f"📷 找到截圖：{os.path.basename(latest)}\n🤖 AI 讀取中...")
+        try:
+            screenshot_dt = get_screenshot_date(latest)
+        except ValueError as e:
+            print(f"Error: {e}")
+            print("   Rename the screenshot to include a date, for example 2026-06-18 or 6-18.")
+            input("\nPress Enter to close...")
+            return
+
+        screenshot_short = format_short_date(screenshot_dt)
+        screenshot_full = format_full_date(screenshot_dt)
+        print(f"Found screenshot: {os.path.basename(latest)} (date: {screenshot_full})\nReading with AI...")
         try:
             result = read_screenshot_with_claude(latest, anthropic_key)
             if result and result.get("stocks"):
                 added = 0
                 updated = 0
-                for s in result["stocks"]:
-                    existing = next((x for x in stocks if x["code"]==s["code"]), None)
-                    price = s.get("price")
-                    ma_dev = s.get("ma_deviation")
-                    bandwidth = s.get("bandwidth")
+                for row in result["stocks"]:
+                    code = str(row.get("code", "")).strip()
+                    if not code:
+                        continue
+                    row["code"] = code
+                    ai_rows_by_code[code] = row
+                    existing = next((x for x in stocks if x["code"] == code), None)
+                    bandwidth = row.get("bandwidth")
 
                     if not existing:
-                        ma_total = None
-                        bband_upper = None
-                        bband_lower = None
-                        if price and ma_dev is not None:
-                            ma_price = price / (1 + ma_dev / 100)
-                            ma_total = ma_price * 20
-                            if bandwidth is not None:
-                                bband_upper = ma_price * (1 + bandwidth / 200)
-                                bband_lower = ma_price * (1 - bandwidth / 200)
-                            upper_str = f"{bband_upper:.2f}" if bband_upper else "N/A"
-                            lower_str = f"{bband_lower:.2f}" if bband_lower else "N/A"
-                            print(f"  新增 {s['code']} 月線:{ma_price:.2f} 上軌:{upper_str} 下軌:{lower_str}")
-                        stocks.append({
-                            "code": s["code"], "name": s.get("name",""),
-                            "sector": s.get("sector",""), "side": "bull",
-                            "prices": {}, "ma_total": ma_total,
-                            "bband_upper": bband_upper, "bband_lower": bband_lower,
-                            "addedDate": today()
-                        })
+                        new_stock = {
+                            "code": code, "name": row.get("name", ""),
+                            "sector": row.get("sector", ""), "side": "bull",
+                            "prices": {}, "ma_total": None,
+                            "bband_upper": None, "bband_lower": None,
+                            "addedDate": screenshot_full
+                        }
+                        stocks.append(new_stock)
+                        new_codes.add(code)
                         added += 1
                     else:
                         if bandwidth is not None and existing.get("ma_total") is not None:
                             ma_price = existing["ma_total"] / 20
-                            existing["bband_upper"] = round(ma_price * (1 + bandwidth / 200), 2)
-                            existing["bband_lower"] = round(ma_price * (1 - bandwidth / 200), 2)
+                            existing["bband_upper"] = round(ma_price * (1 + float(bandwidth) / 200), 2)
+                            existing["bband_lower"] = round(ma_price * (1 - float(bandwidth) / 200), 2)
                             updated += 1
-                print(f"✅ 讀取到 {len(result['stocks'])} 檔，新增 {added} 檔，更新帶寬 {updated} 檔")
-            else: print("⚠️ 無法讀取截圖內容")
-        except Exception as e: print(f"⚠️ AI 讀取失敗：{e}")
+                print(f"AI read {len(result['stocks'])} stocks; added {added}; updated bands {updated}.")
+            else:
+                print("Warning: could not read stocks from screenshot.")
+        except Exception as e:
+            print(f"Warning: AI read failed: {e}")
     else:
-        print("⚠️ 截圖資料夾是空的，跳過新增股票")
+        print("Warning: screenshot folder is empty; skipped adding stocks.")
 
-    today_str = today()
-    print(f"\n📅 並行更新收盤價（{today_str}）...\n📋 追蹤股票數：{len(stocks)} 檔")
+    today_str = screenshot_short or today()
+    print(f"\nUpdating close prices ({today_str})...\nTracked stocks: {len(stocks)}")
     t0 = time.time()
     price_results = fetch_all_prices(stocks)
     success = 0
-    for s in stocks:
-        price, trade_date = price_results.get(s["code"], (None, None))
-        if price:
-            if "prices" not in s: s["prices"] = {}
-            date_key = f"{trade_date.month}/{trade_date.day}"
-            if date_key not in s["prices"]:
-                s["prices"][date_key] = price
-                if s.get("ma_total") is not None:
-                    old_ma = s["ma_total"] / 20
-                    s["ma_total"] = s["ma_total"] - old_ma + price
-                    s["ma"] = round(s["ma_total"] / 20, 2)
-            print(f"  ✅ {s['code']} {s.get('name','')} {price} ({date_key}) 月線:{s.get('ma','N/A')}")
+    for stock in stocks:
+        code = stock.get("code", "")
+        price_dict = price_results.get(code, {})
+        ai_row = ai_rows_by_code.get(code)
+        added_date = stock.get("addedDate")
+        latest_existing_date = latest_price_date(stock)
+        wrote_price = False
+
+        if screenshot_short and ai_row and screenshot_short not in price_dict and valid_price(ai_row.get("price")):
+            use_fallback = True
+            if added_date:
+                try:
+                    use_fallback = parse_date_key(screenshot_short) >= parse_date_key(added_date)
+                except Exception:
+                    use_fallback = True
+            if latest_existing_date and parse_date_key(screenshot_short) < latest_existing_date:
+                use_fallback = False
+            if use_fallback:
+                ai_price = ai_row.get("price")
+                if stock.get("ma_total") is None:
+                    init_ma_and_bands(stock, ai_price, ai_row.get("ma_deviation"), ai_row.get("bandwidth"))
+                roll_ma = code not in new_codes
+                if add_price(stock, screenshot_short, ai_price, roll_ma=roll_ma):
+                    wrote_price = True
+                    print(f"  Warning: {code} has no Yahoo price for {screenshot_short}; using screenshot price {ai_price}")
+
+        if price_dict:
+            if "prices" not in stock:
+                stock["prices"] = {}
+            for date_key, yahoo_price in sorted(price_dict.items(), key=lambda x: parse_date_key(x[0])):
+                if added_date:
+                    try:
+                        if parse_date_key(date_key) < parse_date_key(added_date):
+                            continue
+                    except Exception:
+                        pass
+                if latest_existing_date and parse_date_key(date_key) < latest_existing_date:
+                    continue
+
+                is_screenshot_date = screenshot_short is not None and date_key == screenshot_short
+                if is_screenshot_date and ai_row and valid_price(ai_row.get("price")):
+                    ai_price = float(ai_row.get("price"))
+                    if abs(float(yahoo_price) - ai_price) >= 0.01:
+                        print(f"  Warning: {code} AI price {ai_price} differs from Yahoo {yahoo_price}; using Yahoo")
+
+                if is_screenshot_date and ai_row and stock.get("ma_total") is None:
+                    init_ma_and_bands(stock, yahoo_price, ai_row.get("ma_deviation"), ai_row.get("bandwidth"))
+
+                roll_ma = not (is_screenshot_date and ai_row and code in new_codes)
+                if add_price(stock, date_key, yahoo_price, roll_ma=roll_ma):
+                    wrote_price = True
+
+        if ai_row and ai_row.get("bandwidth") is not None and stock.get("ma_total") is not None:
+            ma_price = stock["ma_total"] / 20
+            stock["bband_upper"] = round(ma_price * (1 + float(ai_row.get("bandwidth")) / 200), 2)
+            stock["bband_lower"] = round(ma_price * (1 - float(ai_row.get("bandwidth")) / 200), 2)
+
+        if price_dict or wrote_price:
+            latest_date = max(stock.get("prices", {}).keys(), key=parse_date_key) if stock.get("prices") else "-"
+            latest_price = stock.get("prices", {}).get(latest_date, "-")
+            print(f"  OK {code} {stock.get('name','')} {latest_price} ({latest_date}) MA:{stock.get('ma','N/A')}")
             success += 1
         else:
-            print(f"  ⚠️ {s['code']} {s.get('name','')} 無法取得")
-    print(f"\n⏱️ 收盤價更新完成，耗時 {time.time()-t0:.1f} 秒，成功 {success}/{len(stocks)} 檔")
+            print(f"  Warning: {code} {stock.get('name','')} could not be fetched")
+    print(f"\nClose price update finished in {time.time()-t0:.1f}s, success {success}/{len(stocks)}")
 
 
     print(f"\n📊 開始畫布林通道圖...")
