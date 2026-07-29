@@ -378,6 +378,9 @@ function stockRow(s, idx, allDates, mode) {
   // 計算需要上色的日期（從最新前高往前推連續墊高）
   const priceEntries = allDates.filter(d=>s.prices?.[d]).map(d=>({d, v:Number(s.prices[d])}));
   const highlightDates = new Set();
+  const below70Dates = new Set();
+  const consecutiveDownDates = new Set();
+  let firstBelow60Date = null;
   if(priceEntries.length) {
     // 找最新前高那天
     const peakIdx = priceEntries.reduce((best,cur,i)=>cur.v>=priceEntries[best].v?i:best, 0);
@@ -387,11 +390,29 @@ function stockRow(s, idx, allDates, mode) {
       if(priceEntries[i].v <= priceEntries[i+1].v) highlightDates.add(priceEntries[i].d);
       else break;
     }
+    // 從前高之後開始，低於前高 70% 顯示藍字；
+    // 第一次低於前高 60% 顯示藍字與淡綠底。
+    for(let i=peakIdx+1;i<priceEntries.length;i++) {
+      if(priceEntries[i].v < peak * 0.7) below70Dates.add(priceEntries[i].d);
+      if(firstBelow60Date===null && priceEntries[i].v < peak * 0.6) {
+        firstBelow60Date = priceEntries[i].d;
+      }
+    }
+    // 從最新價格往前標示連續下跌的日期，遇到跌勢中斷即停止。
+    for(let i=priceEntries.length-1;i>0;i--) {
+      if(priceEntries[i].v < priceEntries[i-1].v) consecutiveDownDates.add(priceEntries[i].d);
+      else break;
+    }
   }
   const priceCells=allDates.map(d=>{
     const v=s.prices?.[d];
     const isHighlight = highlightDates.has(d);
-    if(v) return `<td class="price-cell ${Number(v)===peak?'peak-val':''} ${(()=>{const fromEnd=allDates.length-1-allDates.indexOf(d);return fromEnd>=5?'date-col-old':fromEnd>=3?'date-col-mid':'';})()}" style="${isHighlight?'background:#fef9c3;':''}">${v}</td>`;
+    const isBelow70 = below70Dates.has(d);
+    const isFirstBelow60 = d === firstBelow60Date;
+    const isConsecutiveDown = consecutiveDownDates.has(d);
+    const background = isFirstBelow60 ? '#dcfce7' : isConsecutiveDown ? '#fce7f3' : isHighlight ? '#fef9c3' : '';
+    const cellStyle = `${background?`background:${background};`:''}${isBelow70?'color:#2563eb;font-weight:600;':''}`;
+    if(v) return `<td class="price-cell ${Number(v)===peak?'peak-val':''} ${(()=>{const fromEnd=allDates.length-1-allDates.indexOf(d);return fromEnd>=5?'date-col-old':fromEnd>=3?'date-col-mid':'';})()}" style="${cellStyle}">${v}</td>`;
     return `<td class="price-cell ${(()=>{const fromEnd=allDates.length-1-allDates.indexOf(d);return fromEnd>=5?'date-col-old':fromEnd>=3?'date-col-mid':'';})()}"><input class="price-input" type="number" step="0.01" placeholder="" onchange="updatePrice('${s.code}','${d}',this.value)" onfocus="showExportBtn()" /></td>`;
   }).join('');
   const isChecked = checkedCodes.has(s.code);
