@@ -22,7 +22,8 @@
   .mode-btn.bear.active { background: #16a34a; color: #fff; }
 
   .signal-board { background: #fff; border: 1px solid #e5e5e5; border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; }
-  .signal-title { font-size: 13px; font-weight: 600; margin-bottom: 10px; }
+  .signal-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+  .signal-title { font-size: 13px; font-weight: 600; }
   .signal-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 18px; }
   .signal-row { display: flex; align-items: flex-start; gap: 8px; min-width: 0; font-size: 12px; line-height: 1.7; }
   .signal-label { flex: 0 0 122px; color: #666; font-weight: 500; }
@@ -146,7 +147,10 @@
 
   <!-- 今日提示區 -->
   <div class="signal-board">
-    <div class="signal-title">今日提示</div>
+    <div class="signal-header">
+      <div class="signal-title">今日提示</div>
+      <button class="btn btn-sm" onclick="exportSignalCSV()">匯出 CSV</button>
+    </div>
     <div class="signal-grid">
       <div class="signal-row"><span class="signal-label">多方續強股號</span><span class="signal-content" id="signal-bull-high">—</span></div>
       <div class="signal-row"><span class="signal-label">多方首次跌回月線</span><span class="signal-content" id="signal-bull-ma-down">—</span></div>
@@ -399,28 +403,79 @@ function signalList(items, formatter=signalCode) {
     : '<span class="signal-empty">無</span>';
 }
 
-function renderSignalBoard(bullStocks, bearStocks) {
+function getSignalGroups(bullStocks, bearStocks) {
   const trackedBull=bullStocks.filter(s=>s.tracking!=='N');
   const trackedBear=bearStocks.filter(s=>s.tracking!=='N');
   const bullHigh=trackedBull.filter(latestCreatesNewHigh);
   const highCodes=new Set(bullHigh.map(s=>s.code));
-
-  document.getElementById('signal-bull-high').innerHTML=signalList(bullHigh,s=>{
+  const peerCodes=new Map();
+  bullHigh.forEach(s=>{
     const peers=s.sector && s.sector!=='-'
       ? trackedBull.filter(x=>x.code!==s.code && x.sector===s.sector && !highCodes.has(x.code))
       : [];
+    peerCodes.set(s.code,peers.map(x=>x.code));
+  });
+  return {
+    bullHigh,
+    bullMADown: trackedBull.filter(s=>crossesMonthlyMA(s,'down')),
+    bear60: trackedBear.filter(s=>latestBelowPeakRatio(s,0.6)),
+    bearMAUp: trackedBear.filter(s=>crossesMonthlyMA(s,'up')),
+    peerCodes
+  };
+}
+
+function renderSignalBoard(bullStocks, bearStocks) {
+  const groups=getSignalGroups(bullStocks,bearStocks);
+
+  document.getElementById('signal-bull-high').innerHTML=signalList(groups.bullHigh,s=>{
+    const peers=groups.peerCodes.get(s.code)||[];
     const peerText=peers.length
-      ? `<span class="signal-peers">（同族群未上榜：${peers.map(x=>x.code).join('、')}）</span>`
+      ? `<span class="signal-peers">（同族群未上榜：${peers.join('、')}）</span>`
       : '';
     return `<span class="signal-item">${signalCode(s)}${peerText}</span>`;
   });
 
   document.getElementById('signal-bull-ma-down').innerHTML=
-    signalList(trackedBull.filter(s=>crossesMonthlyMA(s,'down')));
+    signalList(groups.bullMADown);
   document.getElementById('signal-bear-60').innerHTML=
-    signalList(trackedBear.filter(s=>latestBelowPeakRatio(s,0.6)));
+    signalList(groups.bear60);
   document.getElementById('signal-bear-ma-up').innerHTML=
-    signalList(trackedBear.filter(s=>crossesMonthlyMA(s,'up')));
+    signalList(groups.bearMAUp);
+}
+
+function csvCell(value) {
+  const text=String(value??'');
+  return `"${text.replace(/"/g,'""')}"`;
+}
+
+function exportSignalCSV() {
+  const bullStocks=stocks.filter(s=>!s.side||s.side==='bull');
+  const bearStocks=stocks.filter(s=>s.side==='bear');
+  const groups=getSignalGroups(bullStocks,bearStocks);
+  const rows=[['分類','股號','股票名稱','族群','同族群其他未上榜股號']];
+  const addRows=(category,items,withPeers=false)=>{
+    items.forEach(s=>rows.push([
+      category,
+      s.code,
+      s.name||'',
+      s.sector||'',
+      withPeers?(groups.peerCodes.get(s.code)||[]).join('、'):''
+    ]));
+  };
+  addRows('多方續強',groups.bullHigh,true);
+  addRows('多方首次跌回月線',groups.bullMADown);
+  addRows('空方跌到前高60%',groups.bear60);
+  addRows('空方反彈回月線',groups.bearMAUp);
+
+  const csv='\uFEFF'+rows.map(row=>row.map(csvCell).join(',')).join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');
+  const d=new Date();
+  const stamp=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  a.href=URL.createObjectURL(blob);
+  a.download=`今日股票提示_${stamp}.csv`;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
 
 // ===== 渲染 =====
