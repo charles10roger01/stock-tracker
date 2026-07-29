@@ -143,10 +143,10 @@
   <!-- 多方面板 -->
   <div id="bull-panel">
     <div class="summary-grid">
-      <div class="metric" style="cursor:pointer;" onclick="filterStatus(null)"><div class="metric-label">多方追蹤中</div><div class="metric-val" id="bull-cnt-total">0</div></div>
-      <div class="metric" style="cursor:pointer;" onclick="filterStatus('near')"><div class="metric-label">準備進場</div><div class="metric-val warn" id="bull-cnt-near">0</div></div>
-      <div class="metric" style="cursor:pointer;" onclick="filterStatus('fly')"><div class="metric-label">仍在飆升</div><div class="metric-val success" id="bull-cnt-fly">0</div></div>
-      <div class="metric" style="cursor:pointer;" onclick="filterStatus('wait')"><div class="metric-label">等待反彈</div><div class="metric-val info" id="bull-cnt-wait">0</div></div>
+      <div class="metric" style="cursor:pointer;" onclick="filterStatus('bull',null)"><div class="metric-label">多方追蹤中</div><div class="metric-val" id="bull-cnt-total">0</div></div>
+      <div class="metric" style="cursor:pointer;" onclick="filterStatus('bull','near')"><div class="metric-label">準備進場</div><div class="metric-val warn" id="bull-cnt-near">0</div></div>
+      <div class="metric" style="cursor:pointer;" onclick="filterStatus('bull','fly')"><div class="metric-label">仍在飆升</div><div class="metric-val success" id="bull-cnt-fly">0</div></div>
+      <div class="metric" style="cursor:pointer;" onclick="filterStatus('bull','wait')"><div class="metric-label">等待反彈</div><div class="metric-val info" id="bull-cnt-wait">0</div></div>
     </div>
     <div class="toolbar">
       <div class="view-toggle">
@@ -166,9 +166,9 @@
   <!-- 空方面板 -->
   <div id="bear-panel" style="display:none;">
     <div class="summary-grid">
-      <div class="metric"><div class="metric-label">空方追蹤中</div><div class="metric-val" id="bear-cnt-total">0</div></div>
-      <div class="metric"><div class="metric-label">接近月線</div><div class="metric-val success" id="bear-cnt-ready">0</div></div>
-      <div class="metric"><div class="metric-label">等待反彈</div><div class="metric-val info" id="bear-cnt-wait">0</div></div>
+      <div class="metric" style="cursor:pointer;" onclick="filterStatus('bear',null)"><div class="metric-label">空方追蹤中</div><div class="metric-val" id="bear-cnt-total">0</div></div>
+      <div class="metric" style="cursor:pointer;" onclick="filterStatus('bear','short-ready')"><div class="metric-label">接近月線</div><div class="metric-val success" id="bear-cnt-ready">0</div></div>
+      <div class="metric" style="cursor:pointer;" onclick="filterStatus('bear','short-wait')"><div class="metric-label">等待反彈</div><div class="metric-val info" id="bear-cnt-wait">0</div></div>
       <div class="metric"><div class="metric-label">月線斜率</div><div class="metric-val danger">↓</div></div>
     </div>
     <div class="toolbar">
@@ -224,7 +224,7 @@ let currentMode = 'bull';
 let bullView = 'all';
 let bearView = 'all';
 let addTab = 'manual';
-let activeFilter = null;
+let activeFilters = { bull: null, bear: null };
 
 // ===== 月線斜率計算 =====
 function calcMA(prices, period) {
@@ -316,7 +316,7 @@ function getBearStatus(s) {
   const latest = getLatest(s);
   if (!ma || !latest) return 'unknown';
   const pct = (latest - ma) / ma * 100;
-  if (pct <= 3) return 'short-ready';
+  if (pct >= -3 && pct <= 3) return 'short-ready';
   return 'short-wait';
 }
 
@@ -414,6 +414,7 @@ function stockRow(s, idx, allDates, mode) {
 
 function renderBullTable(bullStocks, allDates) {
   const empty = document.getElementById('bull-empty');
+  const activeFilter = activeFilters.bull;
   const filtered = activeFilter ? bullStocks.filter(s=>getBullStatus(s)===activeFilter) : bullStocks;
   if (!bullStocks.length) { empty.style.display='block'; document.getElementById('bull-all-head').innerHTML=''; document.getElementById('bull-all-body').innerHTML=''; return; }
   empty.style.display='none';
@@ -423,10 +424,12 @@ function renderBullTable(bullStocks, allDates) {
 
 function renderBearTable(bearStocks, allDates) {
   const empty = document.getElementById('bear-empty');
+  const activeFilter = activeFilters.bear;
+  const filtered = activeFilter ? bearStocks.filter(s=>getBearStatus(s)===activeFilter) : bearStocks;
   if (!bearStocks.length) { empty.style.display='block'; document.getElementById('bear-all-head').innerHTML=''; document.getElementById('bear-all-body').innerHTML=''; return; }
   empty.style.display='none';
   document.getElementById('bear-all-head').innerHTML=`<tr><th><input type="checkbox" class="head-check" style="width:14px;height:14px;cursor:pointer;" onchange="toggleAll(this.checked)"></th><th>代號</th><th>名稱</th><th>追蹤情形</th><th>族群</th><th>前高</th><th>距前高</th><th>月線</th><th>狀態</th>${allDates.map(d=>`<th>${d}</th>`).join('')}<th></th></tr>`;
-  document.getElementById('bear-all-body').innerHTML=bearStocks.map((s,i)=>stockRow(s,stocks.indexOf(s),allDates,'bear')).join('');
+  document.getElementById('bear-all-body').innerHTML=filtered.map((s,i)=>stockRow(s,stocks.indexOf(s),allDates,'bear')).join('');
 }
 
 function renderGroups(mode, list, allDates) {
@@ -451,6 +454,7 @@ function renderGroups(mode, list, allDates) {
 }
 
 function setMode(mode) {
+  clearChecks();
   currentMode=mode;
   document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
   document.querySelector(`.mode-btn.${mode==='bull'?'bull':'bear'}`).classList.add('active');
@@ -543,7 +547,10 @@ function toggleCheck(code, checked) {
 }
 
 function toggleAll(checked) {
-  document.querySelectorAll('input.row-check').forEach(cb => {
+  const currentView = currentMode === 'bull' ? bullView : bearView;
+  const container = document.getElementById(`${currentMode}-${currentView}-view`);
+  if (!container) return;
+  container.querySelectorAll('input.row-check').forEach(cb => {
     cb.checked = checked;
     checked ? checkedCodes.add(cb.dataset.code) : checkedCodes.delete(cb.dataset.code);
   });
@@ -553,7 +560,7 @@ function toggleAll(checked) {
 function clearChecks() {
   checkedCodes.clear();
   document.querySelectorAll('input.row-check').forEach(cb => cb.checked = false);
-  document.querySelector('input.head-check') && (document.querySelector('input.head-check').checked = false);
+  document.querySelectorAll('input.head-check').forEach(cb => cb.checked = false);
   updateExportBar();
 }
 
@@ -565,9 +572,15 @@ function updateExportBar() {
 }
 
 function exportCodeList() {
+  const isCurrentMode = s => currentMode === 'bull'
+    ? (!s.side || s.side === 'bull')
+    : s.side === 'bear';
   const codes = checkedCodes.size > 0
-    ? [...checkedCodes].filter(code => { const s=stocks.find(s=>s.code===code); return !s||s.tracking!=='N'; })
-    : stocks.filter(s=>s.tracking!=='N').map(s=>s.code);
+    ? [...checkedCodes].filter(code => {
+        const s=stocks.find(s=>s.code===code);
+        return s && isCurrentMode(s) && s.tracking!=='N';
+      })
+    : stocks.filter(s=>isCurrentMode(s) && s.tracking!=='N').map(s=>s.code);
   const txt = codes.join('\n');
   const a = document.createElement('a');
   a.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(txt);
@@ -596,15 +609,18 @@ function hidePreview() {
 }
 
 // ===== 狀態篩選 =====
-function filterStatus(status) {
-  activeFilter = activeFilter === status ? null : status;
+function filterStatus(mode, status) {
+  activeFilters[mode] = activeFilters[mode] === status ? null : status;
   // 更新統計卡片的視覺提示
-  document.querySelectorAll('.summary-grid .metric').forEach(m => m.style.outline = '');
+  document.querySelectorAll(`#${mode}-panel .summary-grid .metric`).forEach(m => m.style.outline = '');
+  const activeFilter = activeFilters[mode];
   if (activeFilter) {
-    const map = {fly: 1, near: 1, wait: 2};
-    const cards = document.querySelectorAll('#bull-panel .summary-grid .metric');
-    const idx = ['total','near','fly','wait'].indexOf(activeFilter === null ? 'total' : activeFilter);
-    if (idx > 0) cards[idx].style.outline = '2px solid #1a1a1a';
+    const order = mode === 'bull'
+      ? ['total','near','fly','wait']
+      : ['total','short-ready','short-wait'];
+    const cards = document.querySelectorAll(`#${mode}-panel .summary-grid .metric`);
+    const idx = order.indexOf(activeFilter);
+    if (idx > 0 && cards[idx]) cards[idx].style.outline = '2px solid #1a1a1a';
   }
   render();
 }
