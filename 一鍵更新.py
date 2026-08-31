@@ -483,39 +483,7 @@ def main():
     print(f"\nClose price update finished in {time.time()-t0:.1f}s, success {success}/{len(stocks)}")
 
 
-    print(f"\n📊 開始畫布林通道圖...")
-    chart_success = 0
-    failed = []
-    for s in stocks:
-        print(f"  畫圖 {s['code']} {s.get('name','')}...", end=" ", flush=True)
-        try:
-            img_bytes = draw_chart(s)
-            if img_bytes:
-                upload_image_to_github(f"charts/{s['code']}.png", img_bytes, github_token)
-                print("✅")
-                chart_success += 1
-            else:
-                print("⚠️ 資料不足")
-        except Exception as e:
-            print(f"⚠️ {e}，稍後重試")
-            failed.append(s)
-
-    if failed:
-        print(f"\n🔄 重試 {len(failed)} 檔失敗的圖表...")
-        time.sleep(5)
-        for s in failed:
-            print(f"  重試 {s['code']} {s.get('name','')}...", end=" ", flush=True)
-            try:
-                img_bytes = draw_chart(s)
-                if img_bytes:
-                    upload_image_to_github(f"charts/{s['code']}.png", img_bytes, github_token)
-                    print("✅")
-                    chart_success += 1
-                else:
-                    print("⚠️ 資料不足")
-            except Exception as e:
-                print(f"❌ {e}")
-    print(f"📊 圖表完成：{chart_success}/{len(stocks)} 檔")
+    print("\nSkipping chart generation (disabled).")
 
     data["stocks"] = stocks
     data["lastUpdate"] = today_str
