@@ -9,7 +9,8 @@
 """
 
 import json, time, urllib.request, base64, os, glob, re, io
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 GITHUB_REPO    = "charles10roger01/stock-tracker"
@@ -90,6 +91,58 @@ def add_price(stock, date_key, price, roll_ma=True):
         stock["ma"] = round(stock["ma_total"] / 20, 2)
     return True
 
+def replace_price(stock, date_key, price, adjust_ma=True):
+    """Replace an existing price and correct the stored rolling total."""
+    if not valid_price(price):
+        return False
+    prices = stock.setdefault("prices", {})
+    new_price = round(float(price), 2)
+    old_price = prices.get(date_key)
+    if old_price is None:
+        return add_price(stock, date_key, new_price, roll_ma=adjust_ma)
+    old_price = float(old_price)
+    if abs(old_price - new_price) < 0.005:
+        return False
+    prices[date_key] = new_price
+    if adjust_ma and stock.get("ma_total") is not None:
+        stock["ma_total"] = float(stock["ma_total"]) + new_price - old_price
+        stock["ma"] = round(stock["ma_total"] / 20, 2)
+    return True
+
+def remove_prices_after(stock, cutoff_dt):
+    """Remove impossible future prices and undo their rolling-MA updates."""
+    prices = stock.get("prices", {})
+    future_keys = sorted(
+        [k for k in prices if parse_date_key(k) > cutoff_dt],
+        key=parse_date_key,
+        reverse=True,
+    )
+    if not future_keys:
+        return 0
+
+    old_ma = float(stock["ma_total"]) / 20 if stock.get("ma_total") is not None else None
+    upper_factor = None
+    lower_factor = None
+    if old_ma and stock.get("bband_upper") is not None:
+        upper_factor = float(stock["bband_upper"]) / old_ma
+    if old_ma and stock.get("bband_lower") is not None:
+        lower_factor = float(stock["bband_lower"]) / old_ma
+
+    for date_key in future_keys:
+        bad_price = float(prices.pop(date_key))
+        if stock.get("ma_total") is not None:
+            # Inverse of: new_total = old_total - old_total / 20 + price
+            stock["ma_total"] = (float(stock["ma_total"]) - bad_price) * 20 / 19
+
+    if stock.get("ma_total") is not None:
+        new_ma = float(stock["ma_total"]) / 20
+        stock["ma"] = round(new_ma, 2)
+        if upper_factor is not None:
+            stock["bband_upper"] = round(new_ma * upper_factor, 2)
+        if lower_factor is not None:
+            stock["bband_lower"] = round(new_ma * lower_factor, 2)
+    return len(future_keys)
+
 def latest_price_date(stock):
     prices = stock.get("prices", {})
     if not prices:
@@ -100,7 +153,13 @@ def get_latest_screenshot():
     files = []
     for p in ["*.jpg","*.jpeg","*.png","*.JPG","*.PNG"]:
         files.extend(glob.glob(os.path.join(SCREENSHOT_DIR, p)))
-    return max(files, key=os.path.getmtime) if files else None
+    dated_files = []
+    for path in files:
+        try:
+            dated_files.append((get_screenshot_date(path), os.path.getmtime(path), path))
+        except ValueError:
+            continue
+    return max(dated_files)[2] if dated_files else None
 
 def read_screenshot_with_claude(image_path, api_key):
     with open(image_path, "rb") as f: image_data = base64.b64encode(f.read()).decode("utf-8")
@@ -145,31 +204,29 @@ def read_screenshot_with_claude(image_path, api_key):
 _tpex_cache = {}
 
 def fetch_closing_prices(code):
-    """?Yahoo Finance???5???????????? {date_key: price}?"""
+    """Fetch timestamped daily closes from Yahoo Finance."""
     import datetime as dt
     for suffix in ['.TW', '.TWO']:
         try:
-            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{code}{suffix}?interval=1d&range=5d"
+            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{code}{suffix}?interval=1d&range=10d"
             req = urllib.request.Request(url, headers={"User-Agent":"Mozilla/5.0","Accept":"application/json"})
             with urllib.request.urlopen(req, timeout=10) as r:
                 data = json.loads(r.read())
             result = data.get("chart",{}).get("result",[])
             if not result: continue
             meta = result[0].get("meta", {})
+            try:
+                exchange_tz = ZoneInfo(meta.get("exchangeTimezoneName") or "Asia/Taipei")
+            except Exception:
+                exchange_tz = ZoneInfo("Asia/Taipei")
             timestamps = result[0].get("timestamp",[])
             closes = result[0].get("indicators",{}).get("quote",[{}])[0].get("close",[])
             if not timestamps or not closes: continue
             result_dict = {}
             for ts, price in zip(timestamps, closes):
                 if price is not None and float(price) > 0:
-                    d = dt.datetime.fromtimestamp(ts)
+                    d = dt.datetime.fromtimestamp(ts, tz=timezone.utc).astimezone(exchange_tz)
                     result_dict[format_short_date(d)] = round(float(price), 2)
-            if closes[-1] is None:
-                regular_price = meta.get("regularMarketPrice")
-                regular_time = meta.get("regularMarketTime")
-                if regular_price and regular_time and float(regular_price) > 0:
-                    d = dt.datetime.fromtimestamp(regular_time)
-                    result_dict[format_short_date(d)] = round(float(regular_price), 2)
             if result_dict:
                 return result_dict
         except Exception as e:
@@ -305,6 +362,12 @@ def get_github_file(repo, filename, token):
         headers={"Authorization":f"token {token}","Accept":"application/vnd.github.v3+json","User-Agent":"stock-tracker"})
     with urllib.request.urlopen(req, timeout=10) as r: return json.loads(r.read())
 
+def get_github_raw_file(repo, filename, token):
+    req = urllib.request.Request(f"https://api.github.com/repos/{repo}/contents/{filename}",
+        headers={"Authorization":f"token {token}","Accept":"application/vnd.github.raw+json","User-Agent":"stock-tracker"})
+    with urllib.request.urlopen(req, timeout=15) as r:
+        return r.read().decode("utf-8")
+
 def update_github_file(repo, filename, content, sha, token, message):
     encoded = base64.b64encode(content.encode("utf-8")).decode("utf-8")
     payload = json.dumps({"message":message,"content":encoded,"sha":sha}).encode("utf-8")
@@ -342,7 +405,10 @@ def main():
     print("\n📡 連接 GitHub...")
     try:
         file_info = get_github_file(GITHUB_REPO, STOCKS_FILE, github_token)
-        content = base64.b64decode(file_info["content"]).decode("utf-8")
+        if file_info.get("content"):
+            content = base64.b64decode(file_info["content"]).decode("utf-8")
+        else:
+            content = get_github_raw_file(GITHUB_REPO, STOCKS_FILE, github_token)
         sha = file_info["sha"]
         data = json.loads(content)
         stocks = data.get("stocks", [])
@@ -371,6 +437,10 @@ def main():
 
         screenshot_short = format_short_date(screenshot_dt)
         screenshot_full = format_full_date(screenshot_dt)
+        if screenshot_dt.weekday() >= 5:
+            print(f"Error: {screenshot_full} is a weekend, so no update was uploaded.")
+            input("\nPress Enter to close...")
+            return
         print(f"Found screenshot: {os.path.basename(latest)} (date: {screenshot_full})\nReading with AI...")
         try:
             result = read_screenshot_with_claude(latest, anthropic_key)
@@ -409,12 +479,33 @@ def main():
         except Exception as e:
             print(f"Warning: AI read failed: {e}")
     else:
-        print("Warning: screenshot folder is empty; skipped adding stocks.")
+        print("Error: no dated screenshot was found; no update was uploaded.")
+        input("\nPress Enter to close...")
+        return
 
-    today_str = screenshot_short or today()
+    today_str = screenshot_short
+    removed_future = 0
+    affected_stocks = 0
+    for stock in stocks:
+        removed = remove_prices_after(stock, screenshot_dt)
+        if removed:
+            removed_future += removed
+            affected_stocks += 1
+    if removed_future:
+        print(f"\nRemoved {removed_future} prices later than {today_str} from {affected_stocks} stocks.")
+
     print(f"\nUpdating close prices ({today_str})...\nTracked stocks: {len(stocks)}")
     t0 = time.time()
     price_results = fetch_all_prices(stocks)
+    target_hits = sum(1 for result in price_results.values() if today_str in result)
+    minimum_hits = max(1, len(stocks) // 2)
+    if target_hits < minimum_hits:
+        print(f"\nError: Yahoo returned {today_str} data for only {target_hits}/{len(stocks)} stocks.")
+        print("The target date may not be a trading day, or Yahoo may be unavailable. Nothing was uploaded.")
+        input("\nPress Enter to close...")
+        return
+    print(f"Yahoo target-date coverage: {target_hits}/{len(stocks)}")
+
     success = 0
     for stock in stocks:
         code = stock.get("code", "")
@@ -423,6 +514,12 @@ def main():
         added_date = stock.get("addedDate")
         latest_existing_date = latest_price_date(stock)
         wrote_price = False
+
+        # Never accept a Yahoo date later than the dated screenshot or a weekend.
+        price_dict = {
+            date_key: price for date_key, price in price_dict.items()
+            if parse_date_key(date_key) <= screenshot_dt and parse_date_key(date_key).weekday() < 5
+        }
 
         if screenshot_short and ai_row and screenshot_short not in price_dict and valid_price(ai_row.get("price")):
             use_fallback = True
@@ -464,22 +561,37 @@ def main():
                 if is_screenshot_date and ai_row and stock.get("ma_total") is None:
                     init_ma_and_bands(stock, yahoo_price, ai_row.get("ma_deviation"), ai_row.get("bandwidth"))
 
-                roll_ma = not (is_screenshot_date and ai_row and code in new_codes)
-                if add_price(stock, date_key, yahoo_price, roll_ma=roll_ma):
-                    wrote_price = True
+                added_on_target = False
+                try:
+                    added_on_target = added_date is not None and parse_date_key(added_date) == screenshot_dt
+                except Exception:
+                    pass
+
+                if is_screenshot_date and added_on_target:
+                    # A stock first added on this date was initialized from the
+                    # screenshot's MA deviation, so do not roll the same day twice.
+                    if ai_row:
+                        init_ma_and_bands(stock, yahoo_price, ai_row.get("ma_deviation"), ai_row.get("bandwidth"))
+                    if replace_price(stock, date_key, yahoo_price, adjust_ma=False):
+                        wrote_price = True
+                elif is_screenshot_date:
+                    if replace_price(stock, date_key, yahoo_price, adjust_ma=True):
+                        wrote_price = True
+                else:
+                    if add_price(stock, date_key, yahoo_price, roll_ma=True):
+                        wrote_price = True
 
         if ai_row and ai_row.get("bandwidth") is not None and stock.get("ma_total") is not None:
             ma_price = stock["ma_total"] / 20
             stock["bband_upper"] = round(ma_price * (1 + float(ai_row.get("bandwidth")) / 200), 2)
             stock["bband_lower"] = round(ma_price * (1 - float(ai_row.get("bandwidth")) / 200), 2)
 
-        if price_dict or wrote_price:
-            latest_date = max(stock.get("prices", {}).keys(), key=parse_date_key) if stock.get("prices") else "-"
-            latest_price = stock.get("prices", {}).get(latest_date, "-")
-            print(f"  OK {code} {stock.get('name','')} {latest_price} ({latest_date}) MA:{stock.get('ma','N/A')}")
+        target_price = stock.get("prices", {}).get(today_str)
+        if valid_price(target_price):
+            print(f"  OK {code} {stock.get('name','')} {target_price} ({today_str}) MA:{stock.get('ma','N/A')}")
             success += 1
         else:
-            print(f"  Warning: {code} {stock.get('name','')} could not be fetched")
+            print(f"  Warning: {code} {stock.get('name','')} has no price for {today_str}")
     print(f"\nClose price update finished in {time.time()-t0:.1f}s, success {success}/{len(stocks)}")
 
 
@@ -491,7 +603,11 @@ def main():
     print(f"\n📤 上傳到 GitHub...")
     try:
         update_github_file(GITHUB_REPO, STOCKS_FILE, new_content, sha, github_token, f"更新 {today_str}")
+        local_stocks_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), STOCKS_FILE)
+        with open(local_stocks_path, "w", encoding="utf-8") as f:
+            f.write(new_content)
         print(f"✅ 完成！")
+        print(f"Local data synchronized: {local_stocks_path}")
         print(f"\n🌐 儀表板：https://charles10roger01.github.io/stock-tracker/")
     except Exception as e: print(f"❌ 上傳失敗：{e}")
 
